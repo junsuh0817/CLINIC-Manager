@@ -18,7 +18,6 @@
         .container { max-width: 950px; margin: 0 auto; background: var(--container-bg); padding: 30px; border-radius: var(--border-radius); box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 50px; }
         .hidden { display: none !important; }
         
-        /* 좌하단 마크 */
         .branding-mark { position: fixed; bottom: 15px; left: 20px; font-size: 11px; font-weight: 700; color: #86868b; opacity: 0.5; letter-spacing: 1px; z-index: 999; }
 
         h2 { font-size: 22px; font-weight: 600; margin-top: 0; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
@@ -33,6 +32,7 @@
         
         button { padding: 6px 14px; cursor: pointer; background-color: var(--accent-color); color: white; border: none; border-radius: 20px; font-weight: 500; font-size: 13px; margin-right: 4px; transition: background-color 0.4s, opacity 0.2s; }
         button:hover { opacity: 0.8; }
+        button:disabled { background-color: #d2d2d7 !important; cursor: not-to-allowed; opacity: 0.6; }
         .btn-gray { background-color: #86868b; }
         .btn-red { background-color: #ff3b30; } 
         .btn-outline { background-color: transparent; border: 1px solid var(--accent-color); color: var(--accent-color); transition: all 0.4s; }
@@ -66,6 +66,20 @@
         .sub-input-row { display: flex; gap: 6px; margin-top: 4px; }
         .sub-input-row input { margin-top: 0; }
 
+        /* 모드 선택 카드 버튼 */
+        .mode-selection-box { display: flex; gap: 20px; margin-top: 30px; }
+        .mode-card { flex: 1; background: #f5f5f7; border: 2px solid transparent; border-radius: 16px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .mode-card:hover { border-color: var(--accent-color); background: #ffffff; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .mode-card h3 { margin: 0 0 10px 0; border: none; padding: 0; font-size: 20px; }
+        .mode-card p { color: #86868b; font-size: 13px; margin: 0; }
+
+        /* 상태 바 */
+        .status-indicator { font-size: 12px; color: #86868b; font-weight: 600; display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-bottom: 10px; }
+        .status-dot { width: 8px; height: 8px; background-color: #34c759; border-radius: 50%; display: inline-block; }
+        .status-dot.saving { background-color: #ff9500; animation: blink 1s infinite; }
+
+        @keyframes blink { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+
         @media print {
             body { background-color: white !important; padding: 0; margin: 0; }
             .container { box-shadow: none; border: none; max-width: 100%; width: 100%; padding: 0; }
@@ -85,15 +99,52 @@
     <div class="branding-mark no-print">Made by JUNSUH</div>
 
     <div class="container">
-        <div id="login-page">
-            <h2>🔒 Clinic Tool Login</h2>
-            <p style="font-size: 13px; color: #86868b;">선생님만의 <strong>개인 코드</strong>를 입력하세요.</p>
-            <input type="password" id="access-code" placeholder="비밀번호 입력" onkeypress="if(event.keyCode==13) loginUser()">
-            <button onclick="loginUser()" style="margin-top: 15px; width: 100%; padding: 10px;">로그인</button>
+        <div id="gate-page">
+            <h2 style="text-align: center; border: none; margin-bottom: 5px;">🏫 Clinic Management System</h2>
+            <p style="text-align: center; color: #86868b; margin-top: 0; margin-bottom: 30px;">원하시는 접속 모드를 선택해 주세요.</p>
+            <div class="mode-selection-box">
+                <div class="mode-card" onclick="switchGatewayMode('teacher')">
+                    <h3>👨‍🏫 선생님 로그인</h3>
+                    <p>학생 등록, 진도 현황 관리 및 주간 학습 계획 작성을 위한 관리자 모드</p>
+                </div>
+                <div class="mode-card" onclick="switchGatewayMode('student')">
+                    <h3>🎒 학생 전용 조회</h3>
+                    <p>본인의 이름 검색을 통한 맞춤형 주간 계획표 및 교재 진도 현황 열람 모드</p>
+                </div>
+            </div>
         </div>
 
+        <div id="login-page" class="hidden">
+            <h2>🔒 Clinic Tool Login (선생님 권한)</h2>
+            <p style="font-size: 13px; color: #86868b;">강사 개인 식별 코드를 입력하세요.</p>
+            <input type="password" id="access-code" placeholder="비밀번호 입력" onkeypress="if(event.keyCode==13) loginUser()">
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <button onclick="loginUser()" style="flex: 3; padding: 10px;">로그인</button>
+                <button onclick="backToGate()" class="btn-gray" style="flex: 1;">메인으로</button>
+            </div>
+        </div>
+
+        <div id="student-search-page" class="hidden">
+            <h2>🎒 학생 정보 검색 조회</h2>
+            <p style="font-size: 13px; color: #86868b;">학생의 <strong>이름</strong>을 정확히 입력해 주세요.</p>
+            <input type="text" id="search-student-name" placeholder="이름 입력 (예: 홍길동)" onkeypress="if(event.keyCode==13) searchStudentAccess()">
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <button onclick="searchStudentAccess()" style="flex: 3; padding: 10px;">검색하기</button>
+                <button onclick="backToGate()" class="btn-gray" style="flex: 1;">메인으로</button>
+            </div>
+            <div id="student-search-error" style="color: #ff3b30; font-weight: 600; margin-top: 12px; font-size: 13px;"></div>
+        </div>
+
+        <div id="student-subjects-page" class="hidden">
+            <h2>📋 <span id="std-dash-name" style="color: var(--accent-color);"></span> 학생의 수강 과목 반</h2>
+            <p style="font-size: 13px; color: #86868b; margin-top: -5px;">확인하고 싶은 클리닉 과목 반을 클릭하세요.</p>
+            <div id="student-subject-buttons-box"></div>
+            <button onclick="backToStudentSearch()" class="btn-gray" style="margin-top: 25px; width: 100%;">◀ 다른 이름 검색</button>
+        </div>
+
+
         <div id="subject-dashboard-page" class="hidden">
-            <h2>📚 과목 반 선택</h2>
+            <h2>📚 과목 반 선택 (관리자)</h2>
             <div id="dashboard-subject-list"></div>
             <hr style="border: none; border-top: 1px solid var(--border-color); margin: 20px 0;">
             <h4>➕ 다른 과목 추가 개설</h4>
@@ -111,6 +162,7 @@
         </div>
 
         <div id="list-page" class="hidden no-print">
+            <div class="status-indicator"><span class="status-dot" id="save-status-dot"></span><span id="save-status-text">클라우드 동기화 완료</span></div>
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 15px;">
                 <h2 style="border: none; margin: 0; padding: 0;">📋 [<span id="active-subject-title"></span>] 클리닉 목록</h2>
                 <button onclick="backToDashboard()" class="btn-gray" style="font-size: 11px; padding: 4px 12px;">◀ 과목 변경</button>
@@ -128,20 +180,15 @@
             <div id="profile-edit-zone" class="hidden" style="background:#f1f3f5; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
                 <h4>⚙️ 선생님 프로필 설정</h4>
                 <div class="flex-group">
-                    <div class="form-group"><label>성함</label><input type="text" id="edit-prof-name"></div>
-                    <div class="form-group"><label>근무 요일</label><input type="text" id="edit-prof-days"></div>
-                    <div class="form-group"><label>근무 시간</label><input type="text" id="edit-prof-hours"></div>
+                    <div class="form-group"><label>성함</label><input type="text" id="edit-prof-name" oninput="triggerAutoSaveDebounce()"></div>
+                    <div class="form-group"><label>근무 요일</label><input type="text" id="edit-prof-days" oninput="triggerAutoSaveDebounce()"></div>
+                    <div class="form-group"><label>근무 시간</label><input type="text" id="edit-prof-hours" oninput="triggerAutoSaveDebounce()"></div>
                 </div>
-                <button onclick="saveTeacherProfile()" style="padding: 4px 12px;">저장</button>
-                <button onclick="toggleProfileEdit()" class="btn-gray">취소</button>
+                <button onclick="toggleProfileEdit()" style="padding: 4px 12px;">완료</button>
             </div>
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <button onclick="showDetail('new')" class="btn-outline" style="font-weight:bold;">+ 새 학생 추가</button>
-                <div>
-                    <button onclick="exportData()" class="btn-gray" style="font-size: 11px;">📥 백업</button>
-                    <button onclick="importData()" class="btn-gray" style="font-size: 11px;">📤 복구</button>
-                </div>
             </div>
             <table>
                 <thead>
@@ -206,11 +253,12 @@
             </div>
 
             <div class="form-group" style="margin-top:15px;"><label>메모</label><textarea id="detail-memo" rows="2"></textarea></div>
-            <button onclick="saveStudent()">저장하기</button>
+            <button onclick="saveStudent()">저장 등록하기</button>
             <button onclick="goToList()" class="btn-gray">취소</button>
         </div>
 
         <div id="planner-page" class="hidden">
+            <div class="status-indicator no-print"><span class="status-dot" id="plan-status-dot"></span><span id="plan-status-text">클라우드 동기화 완료</span></div>
             <div class="no-print" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
                 <div id="week-tabs" class="tab-container">
                     <button class="tab-btn active" onclick="changeWeek(0)">1주차</button>
@@ -218,29 +266,33 @@
                     <button class="tab-btn" onclick="changeWeek(2)">3주차</button>
                     <button class="tab-btn" onclick="changeWeek(3)">4주차</button>
                 </div>
-                <button onclick="saveAndGoList()" class="btn-gray">◀ 목록으로 (자동저장)</button>
+                <div id="planner-exit-btn-zone">
+                    <button onclick="goToList()" class="btn-gray" id="planner-back-list-btn">◀ 목록으로</button>
+                </div>
                 <button onclick="window.print()" class="btn-outline">🖨️ 프린트</button>
             </div>
 
             <div id="print-area">
                 <div class="planner-header">
-                    <input type="text" class="planner-title" id="plan-title" oninput="autoFillDates(this.value)">
+                    <input type="text" class="planner-title" id="plan-title" oninput="autoFillDates(this.value); triggerAutoSaveDebounce();">
                     <div class="student-info-display">
                         <div class="student-name-display" id="planner-student-name"></div>
                         <div id="planner-dday-zone"></div>
                     </div>
                 </div>
+                <div id="planner-top-info-box" style="background: #f8f9fa; border: 1px solid #1d1d1f; padding: 10px 14px; font-size: 12px; margin-bottom: 12px; font-weight: 600; line-height: 1.4;"></div>
+                
                 <table class="planner-table">
                     <tbody>
-                        <tr><th><div class="day-name" style="color:var(--accent-color);">토요일</div><div class="date-wrap"><input class="day-date-input" id="date-sat1-m">월 <input class="day-date-input" id="date-sat1-d">일</div></th><td><div class="editable-cell" id="plan-sat1" contenteditable="true"></div></td></tr>
-                        <tr><th><div class="day-name" style="color:#ff3b30;">일요일</div><div class="date-wrap"><input class="day-date-input" id="date-sun-m">월 <input class="day-date-input" id="date-sun-d">일</div></th><td><div class="editable-cell" id="plan-sun" contenteditable="true"></div></td></tr>
-                        <tr><th><div class="day-name">월요일</div><div class="date-wrap"><input class="day-date-input" id="date-mon-m">월 <input class="day-date-input" id="date-mon-d">일</div></th><td><div class="editable-cell" id="plan-mon" contenteditable="true"></div></td></tr>
-                        <tr><th><div class="day-name">화요일</div><div class="date-wrap"><input class="day-date-input" id="date-tue-m">월 <input class="day-date-input" id="date-tue-d">일</div></th><td><div class="editable-cell" id="plan-tue" contenteditable="true"></div></td></tr>
-                        <tr><th><div class="day-name">수요일</div><div class="date-wrap"><input class="day-date-input" id="date-wed-m">월 <input class="day-date-input" id="date-wed-d">일</div></th><td><div class="editable-cell" id="plan-wed" contenteditable="true"></div></td></tr>
-                        <tr><th><div class="day-name">목요일</div><div class="date-wrap"><input class="day-date-input" id="date-thu-m">월 <input class="day-date-input" id="date-thu-d">일</div></th><td><div class="editable-cell" id="plan-thu" contenteditable="true"></div></td></tr>
-                        <tr><th><div class="day-name">금요일</div><div class="date-wrap"><input class="day-date-input" id="date-fri-m">월 <input class="day-date-input" id="date-fri-d">일</div></th><td><div class="editable-cell" id="plan-fri" contenteditable="true"></div></td></tr>
-                        <tr><th><div class="day-name" style="color:var(--accent-color);">토요일</div><div class="date-wrap"><input class="day-date-input" id="date-sat2-m">월 <input class="day-date-input" id="date-sat2-d">일</div></th><td><div class="editable-cell" id="plan-sat2" contenteditable="true"></div></td></tr>
-                        <tr><th><div class="day-name" style="color:var(--accent-color);">코멘트</div></th><td><div class="editable-cell" id="plan-comment" contenteditable="true" style="min-height: 60px;"></div></td></tr>
+                        <tr><th><div class="day-name" style="color:var(--accent-color);">토요일</div><div class="date-wrap"><input class="day-date-input" id="date-sat1-m" oninput="triggerAutoSaveDebounce()">월 <input class="day-date-input" id="date-sat1-d" oninput="triggerAutoSaveDebounce()">일</div></th><td><div class="editable-cell" id="plan-sat1" contenteditable="true" oninput="triggerAutoSaveDebounce()"></div></td></tr>
+                        <tr><th><div class="day-name" style="color:#ff3b30;">일요일</div><div class="date-wrap"><input class="day-date-input" id="date-sun-m" oninput="triggerAutoSaveDebounce()">월 <input class="day-date-input" id="date-sun-d" oninput="triggerAutoSaveDebounce()">일</div></th><td><div class="editable-cell" id="plan-sun" contenteditable="true" oninput="triggerAutoSaveDebounce()"></div></td></tr>
+                        <tr><th><div class="day-name">월요일</div><div class="date-wrap"><input class="day-date-input" id="date-mon-m" oninput="triggerAutoSaveDebounce()">월 <input class="day-date-input" id="date-mon-d" oninput="triggerAutoSaveDebounce()">일</div></th><td><div class="editable-cell" id="plan-mon" contenteditable="true" oninput="triggerAutoSaveDebounce()"></div></td></tr>
+                        <tr><th><div class="day-name">화요일</div><div class="date-wrap"><input class="day-date-input" id="date-tue-m" oninput="triggerAutoSaveDebounce()">월 <input class="day-date-input" id="date-tue-d" oninput="triggerAutoSaveDebounce()">일</div></th><td><div class="editable-cell" id="plan-tue" contenteditable="true" oninput="triggerAutoSaveDebounce()"></div></td></tr>
+                        <tr><th><div class="day-name">수요일</div><div class="date-wrap"><input class="day-date-input" id="date-wed-m" oninput="triggerAutoSaveDebounce()">월 <input class="day-date-input" id="date-wed-d" oninput="triggerAutoSaveDebounce()">일</div></th><td><div class="editable-cell" id="plan-wed" contenteditable="true" oninput="triggerAutoSaveDebounce()"></div></td></tr>
+                        <tr><th><div class="day-name">목요일</div><div class="date-wrap"><input class="day-date-input" id="date-thu-m" oninput="triggerAutoSaveDebounce()">월 <input class="day-date-input" id="date-thu-d" oninput="triggerAutoSaveDebounce()">일</div></th><td><div class="editable-cell" id="plan-thu" contenteditable="true" oninput="triggerAutoSaveDebounce()"></div></td></tr>
+                        <tr><th><div class="day-name">금요일</div><div class="date-wrap"><input class="day-date-input" id="date-fri-m" oninput="triggerAutoSaveDebounce()">월 <input class="day-date-input" id="date-fri-d" oninput="triggerAutoSaveDebounce()">일</div></th><td><div class="editable-cell" id="plan-fri" contenteditable="true" oninput="triggerAutoSaveDebounce()"></div></td></tr>
+                        <tr><th><div class="day-name" style="color:var(--accent-color);">토요일</div><div class="date-wrap"><input class="day-date-input" id="date-sat2-m" oninput="triggerAutoSaveDebounce()">월 <input class="day-date-input" id="date-sat2-d" oninput="triggerAutoSaveDebounce()">일</div></th><td><div class="editable-cell" id="plan-sat2" contenteditable="true" oninput="triggerAutoSaveDebounce()"></div></td></tr>
+                        <tr><th><div class="day-name" style="color:var(--accent-color);">코멘트</div></th><td><div class="editable-cell" id="plan-comment" contenteditable="true" style="min-height: 60px;" oninput="triggerAutoSaveDebounce()"></div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -248,7 +300,11 @@
     </div>
 
     <script>
-        // --- 🎨 랜덤 테마 부여 로직 ---
+        // ==========================================
+        // 🔗 ⚠️ [필수 연결 구전] 구글 배포 웹 앱 URL 입력 칸
+        // ==========================================
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFoTFN9AzBs1nAt49d-E8UvtA62Vs6Fe2_8y98nAZTc5xJZD5rAhsakG2IF6fVn8fs/exec";
+
         const themeSets = [
             { bg: "#edf2ff", accent: "#3b5bdb" }, { bg: "#e6fcf5", accent: "#099268" }, 
             { bg: "#fff4e6", accent: "#d9480f" }, { bg: "#fff0f6", accent: "#c2255c" }, { bg: "#f8f0fc", accent: "#7048e8" }  
@@ -260,49 +316,125 @@
             document.documentElement.style.setProperty('--accent-color', random.accent);
         }
 
-        // --- 데이터 로직 ---
+        // --- 전역 변수 모음 ---
+        let systemMode = "teacher"; // teacher or student
         let currentTeacherPassword = ""; let currentActiveSubject = ""; let students = []; let teacherProfileMap = {};
         let currentEditId = null; let currentPlannerStudentId = null; let currentWeekIndex = 0;
+        let globalCloudDatabase = []; // 전체 원격 구글 시트 날것의 데이터 캐싱
+        let autoSaveTimer = null; // 디바운스 타이머
 
-        function calculateDDay(dateString) {
-            if (!dateString) return null;
-            const target = new Date(dateString); target.setHours(0,0,0,0);
-            const today = new Date(); today.setHours(0,0,0,0);
-            const diffDays = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
-            return diffDays === 0 ? "D-Day" : (diffDays > 0 ? `D-${diffDays}` : `D+${Math.abs(diffDays)}`);
+        window.onload = function() {
+            initTheme();
+            // 화면 로딩과 동시에 백그라운드에서 구글 클라우드 시트 DB 데이터를 조용히 받아옴 (학생 검색 응답 최적화)
+            fetchCloudDatabaseSilent();
+        };
+
+        function switchGatewayMode(mode) {
+            systemMode = mode;
+            document.getElementById("gate-page").classList.add("hidden");
+            if(mode === 'teacher') {
+                document.getElementById("login-page").classList.remove("hidden");
+            } else {
+                document.getElementById("student-search-page").classList.remove("hidden");
+                document.getElementById("student-search-error").innerText = "";
+            }
         }
 
-        function autoFillDates(titleValue) {
-            const match = titleValue.match(/(\d+)\s*월\s*(\d+)\s*주차/);
-            if (!match) return;
-            const m = parseInt(match[1]); const w = parseInt(match[2]);
-            if (m < 1 || m > 12 || w < 1 || w > 6) return;
-            let d = new Date(new Date().getFullYear(), m - 1, 1);
-            let day = d.getDay(); let diff = (day === 6) ? 0 : 6 - day;
-            if (diff > 0) d.setDate(d.getDate() + diff - 7); else d.setDate(d.getDate() + diff);
-            d.setDate(d.getDate() + (w - 1) * 7);
-            const order = ['sat1', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat2'];
-            order.forEach((name, i) => {
-                let t = new Date(d); t.setDate(d.getDate() + i);
-                document.getElementById(`date-${name}-m`).value = t.getMonth() + 1;
-                document.getElementById(`date-${name}-d`).value = t.getDate();
+        function backToGate() {
+            document.getElementById("login-page").classList.add("hidden");
+            document.getElementById("student-search-page").classList.add("hidden");
+            document.getElementById("gate-page").classList.remove("hidden");
+        }
+
+        // --- 백그라운드 구글 클라우드 DB 연동 데이터 파트 ---
+        function fetchCloudDatabaseSilent() {
+            if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("여기에")) return;
+            fetch(GOOGLE_SCRIPT_URL)
+            .then(res => res.json())
+            .then(data => { globalCloudDatabase = data; })
+            .catch(err => console.log("Cloud Load Error:", err));
+        }
+
+        function saveToCloudStorage() {
+            if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("여기에")) return;
+            setSavingIndicator(true);
+            
+            const payload = {
+                password: currentTeacherPassword,
+                subject: currentActiveSubject,
+                students: students,
+                profile: teacherProfileMap[currentActiveSubject]
+            };
+
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: "POST",
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(resData => {
+                if(resData.result === "success") {
+                    setSavingIndicator(false);
+                    fetchCloudDatabaseSilent(); // 로컬 캐시 갱신
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById("save-status-text").innerText = "동기화 실패(재시도중)";
             });
         }
 
-        function createEmptyPlanners() {
-            return Array.from({length: 4}, (_, i) => ({
-                title: `${new Date().getMonth()+1}월 ${i+1}주차 학습 계획`,
-                sat1: "🎯 클리닉 본 수업 및 테스트", sun: "인강 보충 및 오답 정리", mon: "", tue: "", wed: "", thu: "", fri: "",
-                sat2: "🔥 오답 재테스트 및 점검", comment: "이번 주도 수고 많았습니다!",
-                dates: { sat1_m: "", sat1_d: "", sun_m: "", sun_d: "", mon_m: "", mon_d: "", tue_m: "", tue_d: "", wed_m: "", wed_d: "", thu_m: "", thu_d: "", fri_m: "", fri_d: "", sat2_m: "", sat2_d: "" }
-            }));
+        // 타이핑 즉시 백그라운드 자동 저장 (디바운스 0.6초)
+        function triggerAutoSaveDebounce() {
+            if(systemMode === 'student') return; // 학생은 입력 및 자동저장 불가
+            setSavingIndicator(true);
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => {
+                // 플래너 페이지인 경우 로컬 배열 구조에 실시간 동기화 후 전송
+                if(!document.getElementById("planner-page").classList.contains("hidden")) {
+                    saveCurrentPlannerLocalStorage();
+                }
+                saveToCloudStorage();
+            }, 600);
         }
 
+        function setSavingIndicator(isSaving) {
+            const dots = ["save-status-dot", "plan-status-dot"];
+            const texts = ["save-status-text", "plan-status-text"];
+            dots.forEach(d => {
+                const el = document.getElementById(d);
+                if(el) { el.className = isSaving ? "status-dot saving" : "status-dot"; }
+            });
+            texts.forEach(t => {
+                const el = document.getElementById(t);
+                if(el) { el.innerText = isSaving ? "클라우드 저장 중..." : "클라우드 동기화 완료"; }
+            });
+        }
+
+        // --- 교사 모드 로직 ---
         function loginUser() {
             const pw = document.getElementById("access-code").value.trim();
             if(!pw) return alert("코드를 입력하세요.");
             currentTeacherPassword = pw;
-            teacherProfileMap = JSON.parse(localStorage.getItem(`academy_multi_profiles_${pw}`)) || {"수학": {name:"-", subject:"수학", days:"-", hours:"-"}};
+
+            // 구글 원격 저장소에서 해당 교사의 데이터를 먼저 찾아 로드 시도
+            let foundProfile = null;
+            if(globalCloudDatabase && globalCloudDatabase.length > 0) {
+                // 매칭되는 프로필이 하나라도 있는지 확인 및 대시보드 구조 복원
+                globalCloudDatabase.forEach(row => {
+                    if(row.key.startsWith(pw + "_")) {
+                        const parsed = JSON.parse(row.json);
+                        if(parsed.profile) {
+                            if(!teacherProfileMap[parsed.subject]) teacherProfileMap[parsed.subject] = parsed.profile;
+                        }
+                    }
+                });
+            }
+
+            if(Object.keys(teacherProfileMap).length === 0) {
+                // 캐시가 없다면 로컬스토리지 백업 체크 없으면 빈 구조 개설
+                teacherProfileMap = JSON.parse(localStorage.getItem(`academy_multi_profiles_${pw}`)) || {"수학": {name:"-", subject:"수학", days:"-", hours:"-"}};
+            }
+            
             localStorage.setItem(`academy_multi_profiles_${pw}`, JSON.stringify(teacherProfileMap));
             showSubjectDashboard();
         }
@@ -335,13 +467,26 @@
             document.getElementById("subject-dashboard-page").classList.add("hidden");
             document.getElementById("list-page").classList.remove("hidden");
             document.getElementById("active-subject-title").innerText = s;
-            students = JSON.parse(localStorage.getItem(`academy_data_user_${currentTeacherPassword}_sub_${s}`)) || [];
+
+            // 구글 클라우드 서버 데이터 최우선 동기화 
+            const cloudRow = globalCloudDatabase.find(row => row.key === `${currentTeacherPassword}_${s}`);
+            if(cloudRow) {
+                const parsed = JSON.parse(cloudRow.json);
+                students = parsed.students || [];
+                teacherProfileMap[s] = parsed.profile || teacherProfileMap[s];
+            } else {
+                students = JSON.parse(localStorage.getItem(`academy_data_user_${currentTeacherPassword}_sub_${s}`)) || [];
+            }
+            
             displayTeacherProfile(); renderTable();
         }
 
         function backToDashboard() { document.getElementById("list-page").classList.add("hidden"); showSubjectDashboard(); }
         function logoutUser() { location.reload(); }
-        function syncStorage() { localStorage.setItem(`academy_data_user_${currentTeacherPassword}_sub_${currentActiveSubject}`, JSON.stringify(students)); }
+        function syncStorage() { 
+            localStorage.setItem(`academy_data_user_${currentTeacherPassword}_sub_${currentActiveSubject}`, JSON.stringify(students));
+            saveToCloudStorage(); // 수동 조작 시 즉시 전송
+        }
 
         function displayTeacherProfile() {
             const p = teacherProfileMap[currentActiveSubject];
@@ -358,16 +503,16 @@
                 document.getElementById("edit-prof-name").value = p.name==='-'?"":p.name;
                 document.getElementById("edit-prof-days").value = p.days==='-'?"":p.days;
                 document.getElementById("edit-prof-hours").value = p.hours==='-'?"":p.hours;
-            } else z.classList.add("hidden");
-        }
-
-        function saveTeacherProfile() {
-            const p = teacherProfileMap[currentActiveSubject];
-            p.name = document.getElementById("edit-prof-name").value || "-";
-            p.days = document.getElementById("edit-prof-days").value || "-";
-            p.hours = document.getElementById("edit-prof-hours").value || "-";
-            localStorage.setItem(`academy_multi_profiles_${currentTeacherPassword}`, JSON.stringify(teacherProfileMap));
-            displayTeacherProfile(); toggleProfileEdit(); renderTable();
+            } else {
+                z.classList.add("hidden");
+                const p = teacherProfileMap[currentActiveSubject];
+                p.name = document.getElementById("edit-prof-name").value || "-";
+                p.days = document.getElementById("edit-prof-days").value || "-";
+                p.hours = document.getElementById("edit-prof-hours").value || "-";
+                localStorage.setItem(`academy_multi_profiles_${currentTeacherPassword}`, JSON.stringify(teacherProfileMap));
+                displayTeacherProfile(); renderTable();
+                saveToCloudStorage();
+            }
         }
 
         function checkAgeFormCondition() {
@@ -385,23 +530,45 @@
             } else { junior.classList.remove("hidden"); senior.classList.add("hidden"); }
         }
 
+        function generateStudentProgressText(s, subject) {
+            let info = "";
+            if(parseInt(s.age) >= 19) {
+                if(subject==="국어") info = `[국어 고3 전문] 독서: ${s.kor_read_b||'-'} (${s.kor_read_t||'-'}T) / 문학: ${s.kor_lit_b||'-'} (${s.kor_lit_t||'-'}T) / 선택: ${s.kor_opt||''}-${s.kor_opt_b||'-'} (${s.kor_opt_t||'-'}T)`;
+                else if(subject==="수학") info = `[수학 고3 전문] 수1: ${s.math_m1_b||'-'} (${s.math_m1_t||'-'}T) / 수2: ${s.math_m2_b||'-'} (${s.math_m2_t||'-'}T) / 선택: ${s.math_opt||''}-${s.math_opt_b||'-'} (${s.math_opt_t||'-'}T)`;
+                else if(subject==="영어") info = `[영어 고3 전문] 단어: ${s.eng_word_b||'-'} / 듣기: ${s.eng_listen_b||'-'} / 지문분석: ${s.eng_text_b||'-'}`;
+                else if(subject==="탐구(과학)") info = `[과탐 전문] 과목1: ${s.scie_1||'-'} -> ${s.scie_1_b||'-'} (${s.scie_1_t||'-'}T) / 과목2: ${s.scie_2||'-'} -> ${s.scie_2_b||'-'} (${s.scie_2_t||'-'}T)`;
+                else info = `[사탐 전문] 과목1: ${s.soc_1||'-'} -> ${s.soc_1_b||'-'} (${s.soc_1_t||'-'}T) / 과목2: ${s.soc_2||'-'} -> ${s.soc_2_b||'-'} (${s.soc_2_t||'-'}T)`;
+            } else { info = `[학습 교재 및 진도 현황] 교재: ${s.lec_simple_b || '-'} (담당: ${s.lec_simple_t || '-'}T)`; }
+            if(s.memo) info += ` | 메모: ${s.memo}`;
+            return info;
+        }
+
         function renderTable() {
             const tbody = document.getElementById("student-list-body");
             tbody.innerHTML = students.length ? "" : `<tr><td colspan="5" style="padding:30px; color:#86868b;">학생을 추가해주세요.</td></tr>`;
             students.forEach(s => {
                 const tr = document.createElement("tr");
-                let info = "";
+                let simpleInfo = "";
                 if(parseInt(s.age) >= 19) {
-                    if(currentActiveSubject==="국어") info = `독서:[${s.kor_read_t}] 문학:[${s.kor_lit_t}]`;
-                    else if(currentActiveSubject==="수학") info = `수1:[${s.math_m1_t}] 수2:[${s.math_m2_t}]`;
-                    else if(currentActiveSubject==="영어") info = `단어:[${s.eng_word_t}] 듣기:[${s.eng_listen_t}]`;
-                    else if(currentActiveSubject==="탐구(과학)") info = `${s.scie_1}/${s.scie_2}`;
-                    else info = `${s.soc_1}/${s.soc_2}`;
-                } else info = `[${s.lec_simple_t}] ${s.lec_simple_b}`;
+                    if(currentActiveSubject==="국어") simpleInfo = `독서:[${s.kor_read_t||'-'}] 문학:[${s.kor_lit_t||'-'}]`;
+                    else if(currentActiveSubject==="수학") simpleInfo = `수1:[${s.math_m1_t||'-'}] 수2:[${s.math_m2_t||'-'}]`;
+                    else if(currentActiveSubject==="영어") simpleInfo = `단어:[${s.eng_word_t||'-'}] 듣기:[${s.eng_listen_t||'-'}]`;
+                    else if(currentActiveSubject==="탐구(과학)") simpleInfo = `${s.scie_1||'-'}/${s.scie_2||'-'}`;
+                    else simpleInfo = `${s.soc_1||'-'}/${s.soc_2||'-'}`;
+                } else simpleInfo = `[${s.lec_simple_t||'-'}] ${s.lec_simple_b||'-'}`;
+                
                 const dday = calculateDDay(s.exam_date);
-                tr.innerHTML = `<td><strong>${s.name}</strong></td><td>${s.age}세 / ${s.school}</td><td>${dday?`<span class="dday-badge">${dday}</span>`:'-'}</td><td style="text-align:left;font-size:11px;">${info}</td><td><button onclick="showDetail(${s.id})">수정</button><button onclick="showPlanner(${s.id})" class="btn-outline">계획표</button><button onclick="deleteStudent(${s.id})" class="btn-red">삭제</button></td>`;
+                tr.innerHTML = `<td><strong>${s.name}</strong></td><td>${s.age}세 / ${s.school}</td><td>${dday?`<span class="dday-badge">${dday}</span>`:'-'}</td><td style="text-align:left;font-size:11px;">${simpleInfo}</td><td><button onclick="showDetail(${s.id})">수정</button><button onclick="showPlanner(${s.id})" class="btn-outline">계획표</button><button onclick="deleteStudent(${s.id})" class="btn-red">삭제</button></td>`;
                 tbody.appendChild(tr);
             });
+        }
+
+        function calculateDDay(dateString) {
+            if (!dateString) return null;
+            const target = new Date(dateString); target.setHours(0,0,0,0);
+            const today = new Date(); today.setHours(0,0,0,0);
+            const diffDays = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+            return diffDays === 0 ? "D-Day" : (diffDays > 0 ? `D-${diffDays}` : `D+${Math.abs(diffDays)}`);
         }
 
         function deleteStudent(id) { if(confirm("정말 삭제하시겠습니까?")){ students = students.filter(s=>s.id!==id); syncStorage(); renderTable(); }}
@@ -438,12 +605,61 @@
             syncStorage(); goToList();
         }
 
+        function createEmptyPlanners() {
+            return Array.from({length: 4}, (_, i) => ({
+                title: `${new Date().getMonth()+1}월 ${i+1}주차 학습 계획`,
+                sat1: "🎯 클리닉 본 수업 및 테스트", sun: "인강 보충 및 오답 정리", mon: "", tue: "", wed: "", thu: "", fri: "",
+                sat2: "🔥 오답 재테스트 및 점검", comment: "이번 주도 수고 많았습니다!",
+                dates: { sat1_m: "", sat1_d: "", sun_m: "", sun_d: "", mon_m: "", mon_d: "", tue_m: "", tue_d: "", wed_m: "", wed_d: "", thu_m: "", thu_d: "", fri_m: "", fri_d: "", sat2_m: "", sat2_d: "" }
+            }));
+        }
+
+        function autoFillDates(titleValue) {
+            const match = titleValue.match(/(\d+)\s*월\s*(\d+)\s*주차/);
+            if (!match) return;
+            const m = parseInt(match[1]); const w = parseInt(match[2]);
+            if (m < 1 || m > 12 || w < 1 || w > 6) return;
+            let d = new Date(new Date().getFullYear(), m - 1, 1);
+            let day = d.getDay(); let diff = (day === 6) ? 0 : 6 - day;
+            if (diff > 0) d.setDate(d.getDate() + diff - 7); else d.setDate(d.getDate() + diff);
+            d.setDate(d.getDate() + (w - 1) * 7);
+            const order = ['sat1', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat2'];
+            order.forEach((name, i) => {
+                let t = new Date(d); t.setDate(d.getDate() + i);
+                document.getElementById(`date-${name}-m`).value = t.getMonth() + 1;
+                document.getElementById(`date-${name}-d`).value = t.getDate();
+            });
+        }
+
         function showPlanner(id) {
             currentPlannerStudentId=id; currentWeekIndex=0;
             document.getElementById("list-page").classList.add("hidden");
+            document.getElementById("student-subjects-page").classList.add("hidden");
             document.getElementById("planner-page").classList.remove("hidden");
+            
             const s = students.find(x=>x.id===id);
             document.getElementById("planner-student-name").innerText = s.name;
+            
+            // 상단 요약 정보 렌더링
+            document.getElementById("planner-top-info-box").innerText = generateStudentProgressText(s, currentActiveSubject);
+
+            // 학생 모드인 경우 읽기전용 잠금 처리
+            if(systemMode === 'student') {
+                document.getElementById("plan-title").readOnly = true;
+                document.getElementById("planner-back-list-btn").innerText = "◀ 과목 목록으로";
+                document.getElementById("planner-back-list-btn").onclick = backToStudentSubjects;
+                document.querySelectorAll(".editable-cell").forEach(el => el.setAttribute("contenteditable", "false"));
+                document.querySelectorAll(".day-date-input").forEach(el => el.readOnly = true);
+                document.getElementById("plan-status-dot").parentElement.classList.add("hidden");
+            } else {
+                document.getElementById("plan-title").readOnly = false;
+                document.getElementById("planner-back-list-btn").innerText = "◀ 목록으로";
+                document.getElementById("planner-back-list-btn").onclick = goToList;
+                document.querySelectorAll(".editable-cell").forEach(el => el.setAttribute("contenteditable", "true"));
+                document.querySelectorAll(".day-date-input").forEach(el => el.readOnly = false);
+                document.getElementById("plan-status-dot").parentElement.classList.remove("hidden");
+            }
+
             renderPlannerWeek();
         }
 
@@ -463,11 +679,11 @@
                 document.getElementById(`date-${d}-m`).value = dates[`${d}_m`] || "";
                 document.getElementById(`date-${d}-d`).value = dates[`${d}_d`] || "";
             });
-            if(!dates.sat1_m) autoFillDates(p.title);
+            if(!dates.sat1_m && systemMode === 'teacher') autoFillDates(p.title);
         }
 
-        function saveCurrentPlannerData() {
-            if(!currentPlannerStudentId) return;
+        function saveCurrentPlannerLocalStorage() {
+            if(!currentPlannerStudentId || systemMode === 'student') return;
             const s = students.find(x=>x.id===currentPlannerStudentId);
             const p = s.planners[currentWeekIndex];
             p.title = document.getElementById("plan-title").value;
@@ -478,25 +694,99 @@
                 p.dates[`${d}_m`] = document.getElementById(`date-${d}-m`).value;
                 p.dates[`${d}_d`] = document.getElementById(`date-${d}-d`).value;
             });
-            syncStorage();
+            localStorage.setItem(`academy_data_user_${currentTeacherPassword}_sub_${currentActiveSubject}`, JSON.stringify(students));
         }
 
-        function changeWeek(i) { saveCurrentPlannerData(); currentWeekIndex=i; renderPlannerWeek(); }
-        function saveAndGoList() { saveCurrentPlannerData(); goToList(); }
-        function goToList() { document.getElementById("detail-page").classList.add("hidden"); document.getElementById("planner-page").classList.add("hidden"); document.getElementById("list-page").classList.remove("hidden"); renderTable(); }
+        function changeWeek(i) { 
+            if(systemMode === 'teacher') saveCurrentPlannerLocalStorage(); 
+            currentWeekIndex=i; 
+            renderPlannerWeek(); 
+        }
         
-        function exportData() {
-            const blob = new Blob([JSON.stringify(students)], {type: 'application/json'});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${currentActiveSubject}_백업.json`; a.click();
-        }
-        function importData() {
-            const i = document.createElement('input'); i.type='file'; i.onchange=e=>{
-                const f = e.target.files[0]; const r = new FileReader(); r.readAsText(f);
-                r.onload=ev=>{ students=JSON.parse(ev.target.result); syncStorage(); renderTable(); alert("복구완료"); }
-            }; i.click();
+        function goToList() { 
+            document.getElementById("detail-page").classList.add("hidden"); 
+            document.getElementById("planner-page").classList.add("hidden"); 
+            document.getElementById("list-page").classList.remove("hidden"); 
+            renderTable(); 
         }
 
-        window.onload = initTheme;
+        // --- 학생 모드 핵심 알고리즘 파트 ---
+        let studentMatchedBundles = []; // 검색된 학생의 모든 과목별 데이터 덩어리 캐싱
+
+        function searchStudentAccess() {
+            const name = document.getElementById("search-student-name").value.trim();
+            const errDiv = document.getElementById("student-search-error");
+            errDiv.innerText = "";
+            if(!name) return alert("이름을 입력해 주세요.");
+
+            // 원격 디비가 작동 안 하거나 빈 상태인 경우 사전 차단 예방용 경고
+            if(!globalCloudDatabase || globalCloudDatabase.length === 0) {
+                errDiv.innerText = "⚠️ 현재 클라우드 서버 연결이 원활하지 않거나 등록된 데이터가 없습니다. 강사 로그인 모드로 데이터를 동기화해 주세요.";
+                return;
+            }
+
+            studentMatchedBundles = [];
+            // 모든 과목의 데이터를 무차별 전수조사하여 이름이 일치하는 케이스 수집
+            globalCloudDatabase.forEach(row => {
+                try {
+                    const parsed = JSON.parse(row.json);
+                    if(parsed.students && parsed.students.length > 0) {
+                        parsed.students.forEach(std => {
+                            if(std.name === name) {
+                                studentMatchedBundles.push({
+                                    subject: parsed.subject,
+                                    teacherName: parsed.profile ? parsed.profile.name : "-",
+                                    studentObj: std,
+                                    allStudentsInSub: parsed.students // 형제 배열 구조 보관용
+                                });
+                            }
+                        });
+                    }
+                } catch(e) { console.error("Parse dynamic index error:", e); }
+            });
+
+            if(studentMatchedBundles.length === 0) {
+                errDiv.innerText = `❌ '${name}' 학생으로 등록된 클리닉 수업 내역이 존재하지 않습니다. 성함을 다시 확인해 주세요.`;
+                return;
+            }
+
+            // 매칭 성공 시 학생용 과목 선택 대시보드로 전환
+            document.getElementById("student-search-page").classList.add("hidden");
+            document.getElementById("student-subjects-page").classList.remove("hidden");
+            document.getElementById("std-dash-name").innerText = name;
+
+            const box = document.getElementById("student-subject-buttons-box");
+            box.innerHTML = "";
+            studentMatchedBundles.forEach((bundle, idx) => {
+                const b = document.createElement("button");
+                b.className = "subject-select-btn";
+                b.style.background = "#ffffff";
+                b.style.border = "2px solid var(--border-color)";
+                b.innerHTML = `📖 <strong>[${bundle.subject}]</strong> 클리닉 반 열람 <span style="float:right; font-size:12px; color:var(--accent-color);">담당: ${bundle.teacherName} 선생님</span>`;
+                b.onclick = () => openStudentPlannerView(idx);
+                box.appendChild(b);
+            });
+        }
+
+        function openStudentPlannerView(idx) {
+            const targetBundle = studentMatchedBundles[idx];
+            // 학생 뷰어용 컨텍스트 강제 세팅 인터셉트
+            currentActiveSubject = targetBundle.subject;
+            students = targetBundle.allStudentsInSub; // 포인터 구조 동기화
+            
+            document.getElementById("student-subjects-page").classList.add("hidden");
+            showPlanner(targetBundle.studentObj.id);
+        }
+
+        function backToStudentSubjects() {
+            document.getElementById("planner-page").classList.add("hidden");
+            document.getElementById("student-subjects-page").classList.remove("hidden");
+        }
+
+        function backToStudentSearch() {
+            document.getElementById("student-subjects-page").classList.add("hidden");
+            document.getElementById("student-search-page").classList.remove("hidden");
+        }
     </script>
 </body>
 </html>
