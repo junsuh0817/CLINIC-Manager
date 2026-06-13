@@ -56,14 +56,11 @@
         .student-name-display { font-size: 24px; font-weight: 700; color: var(--text-color); letter-spacing: -0.5px; }
         .dday-badge { display: inline-block; background-color: #ff3b30; color: white; padding: 2px 10px; border-radius: 12px; font-size: 13px; font-weight: 700; margin-top: 4px; }
         
-        /* 📋 계획표 격자 테두리 굵게 보완 (1번 수정) */
-        .planner-table { margin-top: 5px; border: 2px solid #000000; border-collapse: collapse; table-layout: fixed; width: 100%; box-sizing: border-box; }
-        .planner-table th { width: 15%; background-color: #f4f5f7; color: #1d1d1f; border: 1px solid #000000; border-right: 2px solid #000000; padding: 12px 4px; text-align: center; vertical-align: middle; }
-        .planner-table td { text-align: left; padding: 0; border: 1px solid #000000; background-color: #ffffff; vertical-align: top; }
+        /* 📋 계획표 격자 테두리 강제 설정 (브라우저 출력 오류 방지) */
+        .planner-table { margin-top: 5px; border: 2px solid #000 !important; border-collapse: collapse !important; table-layout: fixed; width: 100%; box-sizing: border-box; }
+        .planner-table th { width: 15%; background-color: #f4f5f7; color: #1d1d1f; border: 1px solid #000 !important; border-right: 2px solid #000 !important; padding: 12px 4px; text-align: center; vertical-align: middle; }
+        .planner-table td { text-align: left; padding: 0; border: 1px solid #000 !important; background-color: #ffffff; vertical-align: top; }
         
-        /* 화면에서도 확실하게 보이도록 외곽 라인 두께 강제 적용 */
-        .planner-table:not(.hidden) { border-width: 2px !important; }
-
         .day-name { font-size: 15px; font-weight: 800; margin-bottom: 4px; letter-spacing: -0.5px; }
         .date-wrap { display: block; font-weight: 600; font-size: 11px; color: #555; white-space: nowrap; }
         .day-date-input { width: 22px; text-align: center; border: none; border-bottom: 1px solid #86868b; background: transparent; padding: 0; margin: 0; font-size: 12px; font-weight: 700; color: #1d1d1f; }
@@ -83,18 +80,21 @@
 
         @keyframes blink { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
 
-        /* 🖨️ 인쇄 모드 칼각 통일 유지 */
+        /* 🖨️ 인쇄 모드 강력한 흑백 칼각 테두리 유지 */
         @media print {
             body { background-color: white !important; padding: 0; margin: 0; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .container { box-shadow: none; border: none; max-width: 100%; width: 100%; padding: 0; }
             .no-print { display: none !important; }
-            .planner-table { width: 100%; border: 2px solid #000000 !important; border-collapse: collapse !important; }
-            .planner-table th { background-color: #f4f5f7 !important; border: 1px solid #000000 !important; border-right: 2px solid #000000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 10px 4px; }
-            .planner-table td { border: 1px solid #000000 !important; background-color: #ffffff !important; padding: 0 !important; }
+            .planner-table { width: 100% !important; border: 2px solid #000 !important; border-collapse: collapse !important; }
+            .planner-table th, .planner-table td { border: 1px solid #000 !important; }
+            .planner-table th { background-color: #f4f5f7 !important; border-right: 2px solid #000 !important; padding: 10px 4px; }
+            .planner-table td { background-color: #ffffff !important; padding: 0 !important; }
             .day-date-input { border-bottom: none; }
             .planner-title { border: none; font-size: 24px !important; font-weight: 800; }
             .editable-cell { min-height: 95px; font-size: 13px; padding: 10px 14px; } 
             .dday-badge { background-color: #000000 !important; color: #ffffff !important; }
+            #planner-top-info-box { border: 1px solid #000 !important; }
         }
     </style>
 </head>
@@ -228,7 +228,7 @@
                 </div>
 
                 <div id="form-senior-detail" class="hidden">
-                    <h4>🔥 고3/재수 전문 관리 시스템</h4>
+                    <h4>🔥 고등부 상세 관리 시스템</h4>
                     <div id="detail-box-kor" class="hidden">
                         <div class="form-group"><label>독서</label><div class="sub-input-row"><input type="text" id="detail-kor-read-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-kor-read-b" placeholder="교재 및 진도"></div></div>
                         <div class="form-group"><label>문학</label><div class="sub-input-row"><input type="text" id="detail-kor-lit-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-kor-lit-b" placeholder="교재 및 진도"></div></div>
@@ -284,7 +284,7 @@
                     </div>
                 </div>
                 
-                <div id="planner-top-info-box" style="background: #f8f9fa; border: 1px solid #000000; padding: 12px 16px; font-size: 13px; margin-bottom: 15px; font-weight: 600; line-height: 1.5; white-space: pre-wrap; word-break: break-all;"></div>
+                <div id="planner-top-info-box" class="editable-cell" contenteditable="true" style="background: #f8f9fa; border: 2px solid #000; padding: 12px 16px; font-size: 13px; margin-bottom: 15px; font-weight: 600; line-height: 1.5; white-space: pre-wrap; word-break: break-all; min-height: 45px;" oninput="triggerAutoSaveDebounce()"></div>
                 
                 <table class="planner-table">
                     <tbody>
@@ -451,7 +451,9 @@
             const junior = document.getElementById("form-junior-simple"); const senior = document.getElementById("form-senior-detail");
             ["kor","math","eng","scie","soc"].forEach(b => document.getElementById(`detail-box-${b}`).classList.add("hidden"));
             if(!age) { junior.classList.add("hidden"); senior.classList.add("hidden"); return; }
-            if(age >= 19) {
+            
+            // 나이 기준 14세 이상(중2~고3)으로 하향 조정하여 무조건 상세 과목창이 나오게 변경
+            if(age >= 14) {
                 junior.classList.add("hidden"); senior.classList.remove("hidden");
                 const map = {"국어":"kor","수학":"math","영어":"eng","탐구(과학)":"scie","탐구(사회)":"soc"};
                 const target = map[currentActiveSubject]; if(target) document.getElementById(`detail-box-${target}`).classList.remove("hidden");
@@ -460,14 +462,15 @@
 
         function generateStudentProgressText(s, subject) {
             let info = "";
-            if(parseInt(s.age) >= 19) {
-                if(subject === "국어") info = `독서:${s.kor_read_t||'-'}/${s.kor_read_b||'-'} | 문학:${s.kor_lit_t||'-'}/${s.kor_lit_b||'-'} | 선택(${s.kor_opt||''}):${s.kor_opt_t||'-'}/${s.kor_opt_b||'-'}`;
-                else if(subject === "수학") info = `수1:${s.math_m1_t||'-'}/${s.math_m1_b||'-'} | 수2:${s.math_m2_t||'-'}/${s.math_m2_b||'-'} | 선택(${s.math_opt||''}):${s.math_opt_t||'-'}/${s.math_opt_b||'-'}`;
-                else if(subject === "영어") info = `단어:${s.eng_word_t||'-'}/${s.eng_word_b||'-'} | 듣기:${s.eng_listen_t||'-'}/${s.eng_listen_b||'-'} | 지문:${s.eng_text_t||'-'}/${s.eng_text_b||'-'}`;
-                else if(subject === "탐구(과학)") info = `${s.scie_1||'과탐1'}:${s.scie_1_t||'-'}/${s.scie_1_b||'-'} | ${s.scie_2||'과탐2'}:${s.scie_2_t||'-'}/${s.scie_2_b||'-'}`;
-                else if(subject === "탐구(사회)") info = `${s.soc_1||'사탐1'}:${s.soc_1_t||'-'}/${s.soc_1_b||'-'} | ${s.soc_2||'사탐2'}:${s.soc_2_t||'-'}/${s.soc_2_b||'-'}`;
-            } else info = `${subject}:${s.lec_simple_t||'-'}/${s.lec_simple_b||'-'}`;
-            if(s.memo) info += `\n[메모] ${s.memo}`;
+            // 나이 기준 하향 (14세 이상이면 무조건 상세 진도 표시)
+            if(parseInt(s.age) >= 14) {
+                if(subject.includes("국어")) info = `독서: ${s.kor_read_t||'-'} / ${s.kor_read_b||'-'}  |  문학: ${s.kor_lit_t||'-'} / ${s.kor_lit_b||'-'}  |  선택(${s.kor_opt||''}): ${s.kor_opt_t||'-'} / ${s.kor_opt_b||'-'}`;
+                else if(subject.includes("수학")) info = `수1: ${s.math_m1_t||'-'} / ${s.math_m1_b||'-'}  |  수2: ${s.math_m2_t||'-'} / ${s.math_m2_b||'-'}  |  선택(${s.math_opt||''}): ${s.math_opt_t||'-'} / ${s.math_opt_b||'-'}`;
+                else if(subject.includes("영어")) info = `단어: ${s.eng_word_t||'-'} / ${s.eng_word_b||'-'}  |  듣기: ${s.eng_listen_t||'-'} / ${s.eng_listen_b||'-'}  |  지문: ${s.eng_text_t||'-'} / ${s.eng_text_b||'-'}`;
+                else if(subject.includes("탐구(과학)")) info = `${s.scie_1||'과탐1'}: ${s.scie_1_t||'-'} / ${s.scie_1_b||'-'}  |  ${s.scie_2||'과탐2'}: ${s.scie_2_t||'-'} / ${s.scie_2_b||'-'}`;
+                else if(subject.includes("탐구(사회)")) info = `${s.soc_1||'사탐1'}: ${s.soc_1_t||'-'} / ${s.soc_1_b||'-'}  |  ${s.soc_2||'사탐2'}: ${s.soc_2_t||'-'} / ${s.soc_2_b||'-'}`;
+            } else info = `${subject}: ${s.lec_simple_t||'-'} / ${s.lec_simple_b||'-'}`;
+            if(s.memo) info += `\n\n[선생님 메모]\n${s.memo}`;
             return info;
         }
 
@@ -476,12 +479,12 @@
             tbody.innerHTML = students.length ? "" : `<tr><td colspan="5" style="padding:30px; color:#86868b;">학생을 추가해주세요.</td></tr>`;
             students.forEach(s => {
                 const tr = document.createElement("tr"); let simpleInfo = "";
-                if(parseInt(s.age) >= 19) {
-                    if(currentActiveSubject==="국어") simpleInfo = `독서:${s.kor_read_t||'-'} 문학:${s.kor_lit_t||'-'}`;
-                    else if(currentActiveSubject==="수학") simpleInfo = `수1:${s.math_m1_t||'-'} 수2:${s.math_m2_t||'-'}`;
-                    else if(currentActiveSubject==="영어") simpleInfo = `단어:${s.eng_word_t||'-'} 지문:${s.eng_text_t||'-'}`;
-                    else if(currentActiveSubject==="탐구(과학)") simpleInfo = `${s.scie_1||'-'}/${s.scie_2||'-'}`;
-                    else simpleInfo = `${s.soc_1||'-'}/${s.soc_2||'-'}`;
+                if(parseInt(s.age) >= 14) {
+                    if(currentActiveSubject.includes("국어")) simpleInfo = `독서:${s.kor_read_t||'-'} 문학:${s.kor_lit_t||'-'}`;
+                    else if(currentActiveSubject.includes("수학")) simpleInfo = `수1:${s.math_m1_t||'-'} 수2:${s.math_m2_t||'-'}`;
+                    else if(currentActiveSubject.includes("영어")) simpleInfo = `단어:${s.eng_word_t||'-'} 지문:${s.eng_text_t||'-'}`;
+                    else if(currentActiveSubject.includes("탐구(과학)")) simpleInfo = `${s.scie_1||'-'} / ${s.scie_2||'-'}`;
+                    else simpleInfo = `${s.soc_1||'-'} / ${s.soc_2||'-'}`;
                 } else simpleInfo = `${s.lec_simple_t||'-'} / ${s.lec_simple_b||'-'}`;
                 const dday = calculateDDay(s.exam_date);
                 tr.innerHTML = `<td><strong>${s.name}</strong></td><td>${s.age}세 / ${s.school}</td><td>${dday?`<span class="dday-badge">${dday}</span>`:'-'}</td><td style="text-align:left;font-size:11px;">${simpleInfo}</td><td><button onclick="showDetail(${s.id})">수정</button><button onclick="showPlanner(${s.id})" class="btn-outline">계획표</button><button onclick="deleteStudent(${s.id})" class="btn-red">삭제</button></td>`;
@@ -529,7 +532,7 @@
             return Array.from({length: 4}, (_, i) => ({
                 title: `${new Date().getMonth()+1}월 ${i+1}주차 학습 계획`,
                 sat1: "🎯 클리닉 수업 및 테스트", sun: "보충 및 오답 정리", mon: "", tue: "", wed: "", thu: "", fri: "",
-                sat2: "🔥 오답 재테스트 및 점검", comment: "수고 많았습니다!",
+                sat2: "🔥 오답 재테스트 및 점검", comment: "수고 많았습니다!", top_info: "",
                 dates: { sat1_m:"",sat1_d:"",sun_m:"",sun_d:"",mon_m:"",mon_d:"",tue_m:"",tue_d:"",wed_m:"",wed_d:"",thu_m:"",thu_d:"",fri_m:"",fri_d:"",sat2_m:"",sat2_d:"" }
             }));
         }
@@ -553,7 +556,7 @@
             document.getElementById("list-page").classList.add("hidden"); document.getElementById("student-subjects-page").classList.add("hidden");
             document.getElementById("planner-page").classList.remove("hidden");
             const s = students.find(x=>x.id===id); document.getElementById("planner-student-name").innerText = s.name;
-            document.getElementById("planner-top-info-box").innerText = generateStudentProgressText(s, currentActiveSubject);
+            
             if(systemMode === 'student') {
                 document.getElementById("plan-title").readOnly = true;
                 document.getElementById("planner-back-list-btn").innerText = "◀ 과목 목록"; document.getElementById("planner-back-list-btn").onclick = backToStudentSubjects;
@@ -574,6 +577,10 @@
             const s = students.find(x=>x.id===currentPlannerStudentId); const p = s.planners[currentWeekIndex];
             const tabs = document.querySelectorAll(".tab-btn"); tabs.forEach((t, i) => t.classList.toggle("active", i===currentWeekIndex));
             document.getElementById("plan-title").value = p.title;
+            
+            // 수1, 수2 진도 가져오기 (이전에 수동으로 고친게 있으면 그걸 쓰고, 없으면 시스템이 최신 생성)
+            document.getElementById("planner-top-info-box").innerText = p.top_info || generateStudentProgressText(s, currentActiveSubject);
+
             const days = ["sat1","sun","mon","tue","wed","thu","fri","sat2","comment"];
             days.forEach(d => document.getElementById(`plan-${d}`).innerHTML = p[d] || "");
             const dZone = document.getElementById("planner-dday-zone"); const dText = calculateDDay(s.exam_date);
@@ -589,6 +596,10 @@
             if(!currentPlannerStudentId || systemMode === 'student') return;
             const s = students.find(x=>x.id===currentPlannerStudentId); const p = s.planners[currentWeekIndex];
             p.title = document.getElementById("plan-title").value;
+            
+            // 진도표 수동 변경사항 저장
+            p.top_info = document.getElementById("planner-top-info-box").innerText;
+
             const days = ["sat1","sun","mon","tue","wed","thu","fri","sat2","comment"];
             days.forEach(d => p[d] = document.getElementById(`plan-${d}`).innerHTML); p.dates = {};
             days.filter(d=>d!=='comment').forEach(d => {
