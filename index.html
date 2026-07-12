@@ -1,3 +1,4 @@
+<script>
 // ✅ 새로 배포하신 구글 스크립트 웹 앱 URL을 여기에 반드시 붙여넣으세요.
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxbScP0SwjfsgrMxDq58VGBJHODuYFU5deQfKRzjDmMG8--yi2MBDm28FtI4s9eADdQ/exec";
 
@@ -423,3 +424,4 @@ async function searchStudentAccess() {
 function openStudentPlannerView(idx) { const targetBundle = studentMatchedBundles[idx]; currentActiveSubject = targetBundle.subject; students = targetBundle.allStudentsInSub; document.getElementById("student-subjects-page").classList.add("hidden"); showPlanner(targetBundle.studentObj.id); }
 function backToStudentSubjects() { document.getElementById("planner-page").classList.add("hidden"); document.getElementById("student-subjects-page").classList.remove("hidden"); }
 function backToStudentSearch() { document.getElementById("student-subjects-page").classList.add("hidden"); document.getElementById("student-search-page").classList.remove("hidden"); }
+</script>
