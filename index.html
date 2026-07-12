@@ -56,7 +56,6 @@
         .student-name-display { font-size: 24px; font-weight: 700; color: var(--text-color); letter-spacing: -0.5px; }
         .dday-badge { display: inline-block; background-color: #ff3b30; color: white; padding: 2px 10px; border-radius: 12px; font-size: 13px; font-weight: 700; margin-top: 4px; }
         
-        /* 📋 계획표 격자 테두리 강제 설정 (브라우저 출력 오류 방지) */
         .planner-table { margin-top: 5px; border: 2px solid #000 !important; border-collapse: collapse !important; table-layout: fixed; width: 100%; box-sizing: border-box; }
         .planner-table th { width: 15%; background-color: #f4f5f7; color: #1d1d1f; border: 1px solid #000 !important; border-right: 2px solid #000 !important; padding: 12px 4px; text-align: center; vertical-align: middle; }
         .planner-table td { text-align: left; padding: 0; border: 1px solid #000 !important; background-color: #ffffff; vertical-align: top; }
@@ -80,7 +79,6 @@
 
         @keyframes blink { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
 
-        /* 🖨️ 인쇄 모드 강력한 흑백 칼각 테두리 유지 */
         @media print {
             body { background-color: white !important; padding: 0; margin: 0; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -96,13 +94,18 @@
             .dday-badge { background-color: #000000 !important; color: #ffffff !important; }
             #planner-top-info-box { border: 1px solid #000 !important; }
         }
+        
+        .loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.7); display: flex; justify-content: center; align-items: center; z-index: 100; font-weight: 600; border-radius: var(--border-radius); font-size: 16px; color: var(--accent-color); }
     </style>
 </head>
 <body>
 
     <div class="branding-mark no-print">Made by JUNSUH</div>
 
-    <div class="container">
+    <div class="container" id="main-container">
+        <!-- 동기화 로딩 화면 -->
+        <div id="loading-screen" class="loading-overlay hidden">서버와 동기화 중입니다...</div>
+
         <div id="gate-page">
             <h2 style="text-align: center; border: none; margin-bottom: 5px;">🏫 Clinic Management System</h2>
             <p style="text-align: center; color: #86868b; margin-top: 0; margin-bottom: 30px;">원하시는 접속 모드를 선택해 주세요.</p>
@@ -216,6 +219,7 @@
             </div>
 
             <div id="dynamic-subject-fields-box">
+                <!-- 기존 폼 생략 방지 차원에서 그대로 유지 -->
                 <div id="form-junior-simple" class="hidden">
                     <h4>📚 학습 교재 현황</h4>
                     <div class="form-group">
@@ -304,7 +308,8 @@
     </div>
 
     <script>
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzlCyesKeDTRccNoJPFKV-pd1YWEbWlc2kOnVKIuuCr7bsnmjyjkACFpM6lbDaI3rs0/exec";
+        // ✅ 새로 생성하신 구글 스크립트 웹 앱 URL을 여기에 반드시 붙여넣으세요.
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw89U2yN21LEy28kRGsC8Z9PbsSsv60e8iKo_oJuEED2LYT4RJPaYtbpLupsK86gvM-/exec";
 
         const themeSets = [
             { bg: "#edf2ff", accent: "#3b5bdb" }, { bg: "#e6fcf5", accent: "#099268" }, 
@@ -322,7 +327,7 @@
         let currentEditId = null; let currentPlannerStudentId = null; let currentWeekIndex = 0;
         let globalCloudDatabase = []; let autoSaveTimer = null; 
 
-        window.onload = function() { initTheme(); fetchCloudDatabaseSilent(); };
+        window.onload = function() { initTheme(); };
 
         function switchGatewayMode(mode) {
             systemMode = mode;
@@ -337,17 +342,32 @@
             document.getElementById("gate-page").classList.remove("hidden");
         }
 
-        function fetchCloudDatabaseSilent() {
+        // 서버에서 최신 데이터 강제 불러오기
+        async function fetchCloudDatabase() {
             if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("여기에")) return;
-            fetch(GOOGLE_SCRIPT_URL).then(res => res.json()).then(data => { globalCloudDatabase = data; }).catch(err => console.log(err));
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL);
+                globalCloudDatabase = await response.json();
+            } catch(error) {
+                console.error("Cloud Error", error);
+            }
         }
 
         function saveToCloudStorageAsync() {
             if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("여기에")) return;
             setSavingIndicator(true);
             const payload = { password: currentTeacherPassword, subject: currentActiveSubject, students: students, profile: teacherProfileMap[currentActiveSubject] };
-            fetch(GOOGLE_SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) })
-            .then(() => { setSavingIndicator(false); localStorage.setItem(`academy_data_user_${currentTeacherPassword}_sub_${currentActiveSubject}`, JSON.stringify(students)); })
+            
+            // CORS 에러 방지를 위해 text/plain 속성 사용
+            fetch(GOOGLE_SCRIPT_URL, { 
+                method: "POST", 
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload) 
+            })
+            .then(() => { 
+                setSavingIndicator(false); 
+                localStorage.setItem(`academy_data_user_${currentTeacherPassword}_sub_${currentActiveSubject}`, JSON.stringify(students)); 
+            })
             .catch(() => { document.getElementById("save-status-text").innerText = "동기화 대기중..."; });
         }
 
@@ -364,22 +384,45 @@
             ["save-status-text", "plan-status-text"].forEach(t => { if(document.getElementById(t)) document.getElementById(t).innerText = isSaving ? "클라우드 저장 중..." : "클라우드 동기화 완료"; });
         }
 
-        function loginUser() {
+        // 로그인 시 기존 PC의 데이터를 클라우드로 안전하게 업로드하는 로직 추가
+        async function loginUser() {
             const pw = document.getElementById("access-code").value.trim();
             if(!pw) return alert("코드를 입력하세요.");
             currentTeacherPassword = pw;
+            
+            document.getElementById("loading-screen").classList.remove("hidden");
+            await fetchCloudDatabase();
+            
+            // 기존 PC에 있던 로컬 데이터 마이그레이션 백업 처리
+            let localProfiles = JSON.parse(localStorage.getItem(`academy_multi_profiles_${pw}`)) || {};
+            
             if(globalCloudDatabase && globalCloudDatabase.length > 0) {
                 globalCloudDatabase.forEach(row => {
                     if(row.key.startsWith(pw + "_")) {
                         const parsed = JSON.parse(row.json);
-                        if(parsed.profile && !teacherProfileMap[parsed.subject]) teacherProfileMap[parsed.subject] = parsed.profile;
+                        if(parsed.profile) teacherProfileMap[parsed.subject] = parsed.profile;
                     }
                 });
             }
-            if(Object.keys(teacherProfileMap).length === 0) {
-                teacherProfileMap = JSON.parse(localStorage.getItem(`academy_multi_profiles_${pw}`)) || {"수학": {name:"-", subject:"수학", days:"-", hours:"-"}};
+            
+            // 만약 로컬PC에는 과목이 있는데 클라우드엔 없다면 업로드
+            for (let subj in localProfiles) {
+                if(!teacherProfileMap[subj]) {
+                    teacherProfileMap[subj] = localProfiles[subj];
+                    let localStudents = JSON.parse(localStorage.getItem(`academy_data_user_${pw}_sub_${subj}`)) || [];
+                    if(localStudents.length > 0) {
+                        const payload = { password: pw, subject: subj, students: localStudents, profile: localProfiles[subj] };
+                        fetch(GOOGLE_SCRIPT_URL, { method: "POST", headers: {"Content-Type": "text/plain;charset=utf-8"}, body: JSON.stringify(payload) });
+                    }
+                }
             }
+            
+            if(Object.keys(teacherProfileMap).length === 0) {
+                teacherProfileMap = {"수학": {name:"-", subject:"수학", days:"-", hours:"-"}};
+            }
+            
             localStorage.setItem(`academy_multi_profiles_${pw}`, JSON.stringify(teacherProfileMap));
+            document.getElementById("loading-screen").classList.add("hidden");
             showSubjectDashboard();
         }
 
@@ -403,19 +446,29 @@
             showSubjectDashboard();
         }
 
-        function selectSubjectClass(s) {
+        async function selectSubjectClass(s) {
             currentActiveSubject = s;
             document.getElementById("subject-dashboard-page").classList.add("hidden");
             document.getElementById("list-page").classList.remove("hidden");
             document.getElementById("active-subject-title").innerText = s;
+            
+            document.getElementById("loading-screen").classList.remove("hidden");
+            await fetchCloudDatabase();
+            document.getElementById("loading-screen").classList.add("hidden");
+
             const cloudRow = globalCloudDatabase.find(row => row.key === `${currentTeacherPassword}_${s}`);
+            let needsMigration = false;
+            
             if(cloudRow) {
                 const parsed = JSON.parse(cloudRow.json);
                 students = parsed.students || []; teacherProfileMap[s] = parsed.profile || teacherProfileMap[s];
             } else {
                 students = JSON.parse(localStorage.getItem(`academy_data_user_${currentTeacherPassword}_sub_${s}`)) || [];
+                needsMigration = true;
             }
+            
             displayTeacherProfile(); renderTable();
+            if(needsMigration && students.length > 0) saveToCloudStorageAsync();
         }
 
         function backToDashboard() { document.getElementById("list-page").classList.add("hidden"); showSubjectDashboard(); }
@@ -452,7 +505,6 @@
             ["kor","math","eng","scie","soc"].forEach(b => document.getElementById(`detail-box-${b}`).classList.add("hidden"));
             if(!age) { junior.classList.add("hidden"); senior.classList.add("hidden"); return; }
             
-            // 나이 기준 14세 이상(중2~고3)으로 하향 조정하여 무조건 상세 과목창이 나오게 변경
             if(age >= 14) {
                 junior.classList.add("hidden"); senior.classList.remove("hidden");
                 const map = {"국어":"kor","수학":"math","영어":"eng","탐구(과학)":"scie","탐구(사회)":"soc"};
@@ -462,7 +514,6 @@
 
         function generateStudentProgressText(s, subject) {
             let info = "";
-            // 나이 기준 하향 (14세 이상이면 무조건 상세 진도 표시)
             if(parseInt(s.age) >= 14) {
                 if(subject.includes("국어")) info = `독서: ${s.kor_read_t||'-'} / ${s.kor_read_b||'-'}  |  문학: ${s.kor_lit_t||'-'} / ${s.kor_lit_b||'-'}  |  선택(${s.kor_opt||''}): ${s.kor_opt_t||'-'} / ${s.kor_opt_b||'-'}`;
                 else if(subject.includes("수학")) info = `수1: ${s.math_m1_t||'-'} / ${s.math_m1_b||'-'}  |  수2: ${s.math_m2_t||'-'} / ${s.math_m2_b||'-'}  |  선택(${s.math_opt||''}): ${s.math_opt_t||'-'} / ${s.math_opt_b||'-'}`;
@@ -578,7 +629,6 @@
             const tabs = document.querySelectorAll(".tab-btn"); tabs.forEach((t, i) => t.classList.toggle("active", i===currentWeekIndex));
             document.getElementById("plan-title").value = p.title;
             
-            // 수1, 수2 진도 가져오기 (이전에 수동으로 고친게 있으면 그걸 쓰고, 없으면 시스템이 최신 생성)
             document.getElementById("planner-top-info-box").innerText = p.top_info || generateStudentProgressText(s, currentActiveSubject);
 
             const days = ["sat1","sun","mon","tue","wed","thu","fri","sat2","comment"];
@@ -597,7 +647,6 @@
             const s = students.find(x=>x.id===currentPlannerStudentId); const p = s.planners[currentWeekIndex];
             p.title = document.getElementById("plan-title").value;
             
-            // 진도표 수동 변경사항 저장
             p.top_info = document.getElementById("planner-top-info-box").innerText;
 
             const days = ["sat1","sun","mon","tue","wed","thu","fri","sat2","comment"];
@@ -612,10 +661,17 @@
         function goToList() { document.getElementById("detail-page").classList.add("hidden"); document.getElementById("planner-page").classList.add("hidden"); document.getElementById("list-page").classList.remove("hidden"); renderTable(); }
 
         let studentMatchedBundles = [];
-        function searchStudentAccess() {
+        
+        // 학생 모드 검색 시에도 최신 클라우드 강제 연동
+        async function searchStudentAccess() {
             const name = document.getElementById("search-student-name").value.trim(); const errDiv = document.getElementById("student-search-error"); errDiv.innerText = "";
             if(!name) return alert("이름을 입력해 주세요.");
-            if(!globalCloudDatabase || globalCloudDatabase.length === 0) { errDiv.innerText = "⚠️ 서버 연결 중입니다."; return; }
+            
+            document.getElementById("loading-screen").classList.remove("hidden");
+            await fetchCloudDatabase();
+            document.getElementById("loading-screen").classList.add("hidden");
+
+            if(!globalCloudDatabase || globalCloudDatabase.length === 0) { errDiv.innerText = "⚠️ 등록된 서버 데이터가 없습니다."; return; }
             studentMatchedBundles = [];
             globalCloudDatabase.forEach(row => {
                 try {
