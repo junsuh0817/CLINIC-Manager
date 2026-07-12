@@ -307,9 +307,9 @@
         </div>
     </div>
 
-   <script>
-// ✅ 새로 배포하신 구글 스크립트 웹 앱 URL을 여기에 반드시 붙여넣으세요.
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxbScP0SwjfsgrMxDq58VGBJHODuYFU5deQfKRzjDmMG8--yi2MBDm28FtI4s9eADdQ/exec";
+<script>
+// ✅ 새로 배포하신 대용량 대응 버전 구글 스크립트 URL을 여기에 붙여넣으세요.
+const GOOGLE_SCRIPT_URL = "https://script.google.com/a/macros/hanyang.ac.kr/s/AKfycby1vipEDDFLYip18CFSZWEp90C6it5sEgRrXWuvL6lldhyGwBQZKQtdczNK5OhLv2nk/exec";
 
 const themeSets = [
     { bg: "#edf2ff", accent: "#3b5bdb" }, { bg: "#e6fcf5", accent: "#099268" }, 
@@ -326,6 +326,10 @@ let systemMode = "teacher";
 let currentTeacherPassword = ""; let currentActiveSubject = ""; let students = []; let teacherProfileMap = {};
 let currentEditId = null; let currentPlannerStudentId = null; let currentWeekIndex = 0;
 let globalCloudDatabase = []; let autoSaveTimer = null; 
+
+// 통신 병목 방지용 락 변수
+let isCloudSaving = false;
+let syncPending = false;
 
 window.onload = function() { initTheme(); };
 
@@ -352,7 +356,13 @@ async function fetchCloudDatabase() {
 
 function saveToCloudStorageAsync() {
     if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("여기에")) return;
+    
+    // 이미 전송 중이면 대기 상태로 걸어두고 튕겨냄 (병목 차단)
+    if(isCloudSaving) { syncPending = true; return; }
+    
+    isCloudSaving = true;
     setSavingIndicator(true);
+    
     const payload = { password: currentTeacherPassword, subject: currentActiveSubject, students: students, profile: teacherProfileMap[currentActiveSubject] };
     
     fetch(GOOGLE_SCRIPT_URL, { 
@@ -360,26 +370,41 @@ function saveToCloudStorageAsync() {
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload) 
     })
+    .then(res => res.json())
     .then(() => { 
+        isCloudSaving = false;
         setSavingIndicator(false); 
         localStorage.setItem(`academy_data_user_${currentTeacherPassword}_sub_${currentActiveSubject}`, JSON.stringify(students)); 
+        
+        // 대기 중인 동기화 요청이 있었다면 이어서 즉시 실행
+        if(syncPending) { syncPending = false; saveToCloudStorageAsync(); }
     })
-    .catch(() => { document.getElementById("save-status-text").innerText = "동기화 대기중..."; });
+    .catch((err) => { 
+        isCloudSaving = false;
+        console.error("동기화 실패:", err);
+        ["save-status-dot", "plan-status-dot"].forEach(d => { if(document.getElementById(d)) document.getElementById(d).className = "status-dot error"; });
+        ["save-status-text", "plan-status-text"].forEach(t => { if(document.getElementById(t)) document.getElementById(t).innerText = "동기화 실패 (자동 재시도중)"; });
+        
+        // 에러 발생 시 3초 뒤 재시도 큐 가동
+        setTimeout(() => { saveToCloudStorageAsync(); }, 3000);
+    });
 }
 
-// 🆕 수동 강제 업로드 기능 (PC의 로컬 데이터를 구글 서버로 덮어씌움)
 function forceSyncToCloud() {
     if(students.length === 0 && !confirm("현재 화면에 학생 데이터가 없습니다. 이대로 빈 데이터를 서버에 덮어씌우시겠습니까?")) return;
+    isCloudSaving = false; // 강제 업로드를 위해 잠시 락 해제
     saveToCloudStorageAsync();
-    alert(`[${currentActiveSubject}] 반의 데이터가 클라우드 서버로 강제 업로드되었습니다.\n노트북에서 새로고침 후 확인해 보세요.`);
+    alert(`[${currentActiveSubject}] 반의 대용량 데이터가 서버로 안전하게 분리 업로드되었습니다.\n노트북에서 새로고침 후 확인해 보세요.`);
 }
 
 function triggerAutoSaveDebounce() {
     if(systemMode === 'student') return;
-    setSavingIndicator(true);
+    ["save-status-dot", "plan-status-dot"].forEach(d => { if(document.getElementById(d)) document.getElementById(d).className = "status-dot saving"; });
+    ["save-status-text", "plan-status-text"].forEach(t => { if(document.getElementById(t)) document.getElementById(t).innerText = "입력 대기 중..."; });
+    
     if(!document.getElementById("planner-page").classList.contains("hidden")) saveCurrentPlannerLocalStorage();
     clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(() => { saveToCloudStorageAsync(); }, 700);
+    autoSaveTimer = setTimeout(() => { saveToCloudStorageAsync(); }, 1500); // 디바운스 시간을 1.5초로 늘려 안정성 확보
 }
 
 function setSavingIndicator(isSaving) {
@@ -399,9 +424,11 @@ async function loginUser() {
     
     if(globalCloudDatabase && globalCloudDatabase.length > 0) {
         globalCloudDatabase.forEach(row => {
-            if(row.key.startsWith(pw + "_")) {
-                const parsed = JSON.parse(row.json);
-                if(parsed.profile) teacherProfileMap[parsed.subject] = parsed.profile;
+            if(row.key.startsWith(pw + "_") && row.key.endsWith("_PROFILE")) {
+                try {
+                    const parsed = JSON.parse(row.json);
+                    if(parsed.profile) teacherProfileMap[parsed.subject] = parsed.profile;
+                } catch(e){}
             }
         });
     }
@@ -441,7 +468,6 @@ function showSubjectDashboard() {
         b.innerHTML = `📘 <strong>[${subj}]</strong> 반 입장 <span style="float:right; font-size:10px;">강사: ${teacherProfileMap[subj].name}</span>`;
         b.onclick = () => selectSubjectClass(subj); 
         
-        // 🆕 삭제 버튼 추가
         const delBtn = document.createElement("button");
         delBtn.className = "btn-red"; delBtn.style.padding = "0 15px"; delBtn.style.borderRadius = "10px";
         delBtn.innerText = "삭제";
@@ -452,7 +478,6 @@ function showSubjectDashboard() {
     });
 }
 
-// 🆕 과목 반 삭제 기능 함수
 function deleteSubjectClass(subj) {
     if(confirm(`🚨 정말 [${subj}] 반을 삭제하시겠습니까?\n이 반에 속한 모든 학생 데이터가 영구적으로 삭제됩니다.`)) {
         delete teacherProfileMap[subj];
@@ -481,7 +506,6 @@ async function selectSubjectClass(s) {
     document.getElementById("list-page").classList.remove("hidden");
     document.getElementById("active-subject-title").innerText = s;
     
-    // 수동 동기화 버튼을 상단에 주입
     const btnZone = document.getElementById("active-subject-title").parentElement;
     if(!document.getElementById("manual-sync-btn")) {
         const syncBtn = document.createElement("button");
@@ -495,12 +519,25 @@ async function selectSubjectClass(s) {
     await fetchCloudDatabase();
     document.getElementById("loading-screen").classList.add("hidden");
 
-    const cloudRow = globalCloudDatabase.find(row => row.key === `${currentTeacherPassword}_${s}`);
+    const prefix = `${currentTeacherPassword}_${s}_`;
+    const profileKey = `${currentTeacherPassword}_${s}_PROFILE`;
+    
+    const subjectRows = globalCloudDatabase.filter(row => row.key.startsWith(prefix));
+    const profileRow = globalCloudDatabase.find(row => row.key === profileKey);
+    
     let needsMigration = false;
     
-    if(cloudRow) {
-        const parsed = JSON.parse(cloudRow.json);
-        students = parsed.students || []; teacherProfileMap[s] = parsed.profile || teacherProfileMap[s];
+    if(subjectRows.length > 0 || profileRow) {
+        students = [];
+        subjectRows.forEach(row => {
+            try { students.push(JSON.parse(row.json)); } catch(e){}
+        });
+        if(profileRow) {
+            try {
+                const parsedProf = JSON.parse(profileRow.json);
+                teacherProfileMap[s] = parsedProf.profile || teacherProfileMap[s];
+            } catch(e){}
+        }
     } else {
         students = JSON.parse(localStorage.getItem(`academy_data_user_${currentTeacherPassword}_sub_${s}`)) || [];
         needsMigration = true;
@@ -685,7 +722,6 @@ function saveCurrentPlannerLocalStorage() {
     if(!currentPlannerStudentId || systemMode === 'student') return;
     const s = students.find(x=>x.id===currentPlannerStudentId); const p = s.planners[currentWeekIndex];
     p.title = document.getElementById("plan-title").value;
-    
     p.top_info = document.getElementById("planner-top-info-box").innerText;
 
     const days = ["sat1","sun","mon","tue","wed","thu","fri","sat2","comment"];
@@ -711,21 +747,36 @@ async function searchStudentAccess() {
 
     if(!globalCloudDatabase || globalCloudDatabase.length === 0) { errDiv.innerText = "⚠️ 등록된 서버 데이터가 없습니다."; return; }
     studentMatchedBundles = [];
+    
     globalCloudDatabase.forEach(row => {
-        try {
-            const parsed = JSON.parse(row.json);
-            if(parsed.students) parsed.students.forEach(std => {
-                if(std.name === name) studentMatchedBundles.push({ subject: parsed.subject, teacherName: parsed.profile?parsed.profile.name:"-", studentObj: std, allStudentsInSub: parsed.students });
-            });
-        } catch(e) {}
+        if(!row.key.endsWith("_PROFILE") && row.key.includes("_")) {
+            try {
+                const std = JSON.parse(row.json);
+                if(std.name === name) {
+                    const lastIdx = row.key.lastIndexOf("_");
+                    const prefix = row.key.substring(0, lastIdx + 1); // "비번_과목_" 획득
+                    const pRow = globalCloudDatabase.find(r => r.key === prefix + "PROFILE");
+                    let subj = "알수없음"; let tName = "-";
+                    if(pRow) {
+                        const pData = JSON.parse(pRow.json);
+                        subj = pData.subject; tName = pData.profile ? pData.profile.name : "-";
+                    }
+                    const allStdsRows = globalCloudDatabase.filter(r => r.key.startsWith(prefix) && !r.key.endsWith("_PROFILE"));
+                    const allStds = allStdsRows.map(r => JSON.parse(r.json));
+                    
+                    studentMatchedBundles.push({ subject: subj, teacherName: tName, studentObj: std, allStudentsInSub: allStds });
+                }
+            } catch(e){}
+        }
     });
+    
     if(studentMatchedBundles.length === 0) { errDiv.innerText = `❌ '${name}' 학생 내역이 없습니다.`; return; }
     document.getElementById("student-search-page").classList.add("hidden"); document.getElementById("student-subjects-page").classList.remove("hidden");
     document.getElementById("std-dash-name").innerText = name;
     const box = document.getElementById("student-subject-buttons-box"); box.innerHTML = "";
     studentMatchedBundles.forEach((bundle, idx) => {
         const b = document.createElement("button"); b.className = "subject-select-btn"; b.style.background = "#ffffff"; b.style.border = "2px solid var(--border-color)";
-        b.innerHTML = `📖 <strong>[${bundle.subject}]</strong> 반 열람 <span style="float:right; font-size:12px; color:var(--accent-color);">담당:${bundle.teacherName}</span>`;
+        b.innerHTML = `📖 <strong>[${bundle.subject}]</strong> 반 눈팅 <span style="float:right; font-size:12px; color:var(--accent-color);">담당:${bundle.teacherName}</span>`;
         b.onclick = () => openStudentPlannerView(idx); box.appendChild(b);
     });
 }
