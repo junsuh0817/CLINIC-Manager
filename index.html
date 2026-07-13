@@ -99,6 +99,12 @@
     </style>
 </head>
 <body>
+    <!-- 좌측 상단 고정 고동기화 제어 바 -->
+    <div id="global-sync-bar" style="position: fixed; top: 10px; left: 10px; z-index: 9999; display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.9); padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); backdrop-filter: blur(4px);">
+        <span id="global-status-dot" class="status-dot" style="width: 8px; height: 8px; background: #34c759; border-radius: 50%; display: inline-block;"></span>
+        <span id="global-status-text" style="font-size: 11px; font-weight: bold; color: #555;">클라우드 연결됨</span>
+        <button onclick="forceSyncToCloud()" class="btn-outline" style="font-size: 10px; padding: 2px 8px; margin: 0; border-radius: 12px; height: auto;">☁️ 강제 업로드</button>
+    </div>
 
     <div class="branding-mark no-print">Made by JUNSUH</div>
 
@@ -784,4 +790,83 @@ async function searchStudentAccess() {
 function openStudentPlannerView(idx) { const targetBundle = studentMatchedBundles[idx]; currentActiveSubject = targetBundle.subject; students = targetBundle.allStudentsInSub; document.getElementById("student-subjects-page").classList.add("hidden"); showPlanner(targetBundle.studentObj.id); }
 function backToStudentSubjects() { document.getElementById("planner-page").classList.add("hidden"); document.getElementById("student-subjects-page").classList.remove("hidden"); }
 function backToStudentSearch() { document.getElementById("student-subjects-page").classList.add("hidden"); document.getElementById("student-search-page").classList.remove("hidden"); }
+function pushNavigationState(pageId, extraData = {}) {
+    const state = { page: pageId, subject: currentActiveSubject, studentId: currentPlannerStudentId, ...extraData };
+    if (!history.state || history.state.page !== pageId) {
+        history.pushState(state, "");
+    }
+}
+
+// 기존 함수 가로채서 히스토리 기록 심기
+if (typeof showSubjectDashboard === "function") {
+    const originalShowSubjectDashboard = showSubjectDashboard;
+    showSubjectDashboard = function(...args) {
+        originalShowSubjectDashboard(...args);
+        pushNavigationState("dashboard");
+    };
+}
+
+if (typeof selectSubjectClass === "function") {
+    const originalSelectSubjectClass = selectSubjectClass;
+    selectSubjectClass = function(...args) {
+        originalSelectSubjectClass(...args);
+        pushNavigationState("list");
+    };
+}
+
+if (typeof showDetail === "function") {
+    const originalShowDetail = showDetail;
+    showDetail = function(...args) {
+        originalShowDetail(...args);
+        pushNavigationState("detail");
+    };
+}
+
+if (typeof showPlanner === "function") {
+    const originalShowPlanner = showPlanner;
+    showPlanner = function(...args) {
+        originalShowPlanner(...args);
+        pushNavigationState("planner");
+    };
+}
+
+// 🚨 뒤로가기 버튼 눌렀을 때 작동하는 센서
+window.onpopstate = function(event) {
+    if (!document.getElementById("planner-page").classList.contains("hidden")) {
+        saveCurrentPlannerLocalStorage(); 
+    }
+    if (!document.getElementById("detail-page").classList.contains("hidden")) {
+        const name = document.getElementById("detail-name").value.trim();
+        if (name && currentEditId === null) {
+            if(confirm("작성 중인 학생 정보가 있습니다. 저장하고 이동하시겠습니까?")) {
+                saveStudent(); return;
+            }
+        }
+    }
+
+    if (event.state && event.state.page) {
+        const page = event.state.page;
+        currentActiveSubject = event.state.subject || currentActiveSubject;
+        currentPlannerStudentId = event.state.studentId || currentPlannerStudentId;
+
+        const pages = ["gate-page", "login-page", "subject-dashboard-page", "list-page", "detail-page", "planner-page", "student-search-page", "student-subjects-page"];
+        pages.forEach(p => { if(document.getElementById(p)) document.getElementById(p).classList.add("hidden"); });
+
+        if (page === "dashboard") {
+            document.getElementById("subject-dashboard-page").classList.remove("hidden");
+            if (typeof showSubjectDashboard === "function") originalShowSubjectDashboard();
+        } else if (page === "list") {
+            document.getElementById("list-page").classList.remove("hidden");
+            renderTable();
+        } else if (page === "detail") {
+            document.getElementById("detail-page").classList.remove("hidden");
+        } else if (page === "planner") {
+            document.getElementById("planner-page").classList.remove("hidden");
+            renderPlannerWeek();
+        }
+    } else {
+        backToGate();
+    }
+};
+    
 </script>
