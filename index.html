@@ -868,5 +868,11 @@ window.onpopstate = function(event) {
         backToGate();
     }
 };
+
+// 👻 기존 위치에 생성되던 옛날 수동 동기화 버튼을 자동 추적해서 파괴하는 감시 센서
+setInterval(function() {
+    const oldBtn = document.getElementById("manual-sync-btn");
+    if (oldBtn) { oldBtn.style.display = "none"; } // 옛날 버튼이 생기면 즉시 숨김 처리
+}, 300);
     
 </script>
