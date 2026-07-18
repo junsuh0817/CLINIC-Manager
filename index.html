@@ -97,6 +97,30 @@
         
         .loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.7); display: flex; justify-content: center; align-items: center; z-index: 100; font-weight: 600; border-radius: var(--border-radius); font-size: 16px; color: var(--accent-color); }
     </style>
+    <style>
+/* 🖨️ 프린트(PDF 저장 및 인쇄)할 때 불필요한 것들 싹 숨기기 */
+@media print {
+    /* 클라우드 상태등, 동기화 텍스트 강제 숨김 */
+    .status-dot,
+    [id*="status-dot"],
+    [id*="status-text"],
+    
+    /* 인쇄할 때 필요 없는 모든 버튼 숨김 (목록 가기, 삭제 등) */
+    button,
+    .btn-outline,
+    .btn-red,
+    #manual-sync-btn,
+    .tab-btn {
+        display: none !important;
+    }
+
+    /* 입력창 배경이나 테두리를 인쇄 시 더 깔끔하게 조절 */
+    textarea, .editable-cell {
+        border: 1px solid #ddd !important;
+        background: transparent !important;
+    }
+}
+</style>
 </head>
 <body>
     <!-- 좌측 상단 고정 고동기화 제어 바 -->
