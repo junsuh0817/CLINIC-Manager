@@ -79,43 +79,50 @@
 
         @keyframes blink { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
 
+        /* ✨ 프린트 버그 수정 완료 구역 */
         @media print {
-    /* 1. 날짜, 주소 등 브라우저 지저분한 여백 제거 */
-    @page {
-        margin: 0; 
-    }
-    body {
-        padding: 2cm; 
-    }
-
-    /* 2. 버튼, 탭, 그리고 문제의 '모든 동그라미 상태등'을 형체도 없이 증발시킴 */
-    button,
-    .btn-outline,
-    .btn-red,
-    #manual-sync-btn,
-    .tab-btn,
-    .status-dot,
-    [class*="status"],
-    [id*="status"],
-    [class*="dot"],
-    [id*="dot"] {
-        display: none !important;
-        visibility: hidden !important;
-        width: 0 !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        background: none !important;
-        opacity: 0 !important;
-    }
-
-    /* 3. 입력창 테두리 깔끔하게 정리 */
-    textarea, .editable-cell {
-        border: 1px solid #ddd !important;
-        background: transparent !important;
-    }
-}
+            @page {
+                margin: 15mm 10mm 10mm 10mm; /* 프린트 여백 표준화 */
+            }
+            body {
+                padding: 0 !important;
+                margin: 0 !important;
+                background-color: #ffffff !important;
+            }
+            .container {
+                max-width: 100% !important;
+                width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                background: transparent !important;
+            }
+            /* 프린트 전용 숨김 목록 최적화 */
+            .no-print, 
+            #global-sync-bar, 
+            .status-indicator, 
+            .branding-mark,
+            #week-tabs,
+            #planner-exit-btn-zone,
+            button {
+                display: none !important;
+                visibility: hidden !important;
+                height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            #print-area {
+                margin-top: 0 !important;
+                padding-top: 0 !important;
+            }
+            .planner-header {
+                margin-top: 0 !important;
+            }
+            textarea, .editable-cell {
+                border: 1px solid #ddd !important;
+                background: transparent !important;
+            }
+        }
         
         .loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.7); display: flex; justify-content: center; align-items: center; z-index: 100; font-weight: 600; border-radius: var(--border-radius); font-size: 16px; color: var(--accent-color); }
     </style>
@@ -248,7 +255,6 @@
             </div>
 
             <div id="dynamic-subject-fields-box">
-                <!-- 기존 폼 생략 방지 차원에서 그대로 유지 -->
                 <div id="form-junior-simple" class="hidden">
                     <h4>📚 학습 교재 현황</h4>
                     <div class="form-group">
@@ -337,7 +343,6 @@
     </div>
 
 <script>
-// ✅ 새로 배포하신 대용량 대응 버전 구글 스크립트 URL을 여기에 붙여넣으세요.
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzSArQ8CucbB0B3xhAv3an5kAMXVt8YO0mhhA8Zb7T1eZe8ND6QOh24_tU01CA5c-hO/exec";
 
 const themeSets = [
@@ -356,7 +361,6 @@ let currentTeacherPassword = ""; let currentActiveSubject = ""; let students = [
 let currentEditId = null; let currentPlannerStudentId = null; let currentWeekIndex = 0;
 let globalCloudDatabase = []; let autoSaveTimer = null; 
 
-// 통신 병목 방지용 락 변수
 let isCloudSaving = false;
 let syncPending = false;
 
@@ -385,8 +389,6 @@ async function fetchCloudDatabase() {
 
 function saveToCloudStorageAsync() {
     if(!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("여기에")) return;
-    
-    // 이미 전송 중이면 대기 상태로 걸어두고 튕겨냄 (병목 차단)
     if(isCloudSaving) { syncPending = true; return; }
     
     isCloudSaving = true;
@@ -404,8 +406,6 @@ function saveToCloudStorageAsync() {
         isCloudSaving = false;
         setSavingIndicator(false); 
         localStorage.setItem(`academy_data_user_${currentTeacherPassword}_sub_${currentActiveSubject}`, JSON.stringify(students)); 
-        
-        // 대기 중인 동기화 요청이 있었다면 이어서 즉시 실행
         if(syncPending) { syncPending = false; saveToCloudStorageAsync(); }
     })
     .catch((err) => { 
@@ -413,15 +413,13 @@ function saveToCloudStorageAsync() {
         console.error("동기화 실패:", err);
         ["save-status-dot", "plan-status-dot"].forEach(d => { if(document.getElementById(d)) document.getElementById(d).className = "status-dot error"; });
         ["save-status-text", "plan-status-text"].forEach(t => { if(document.getElementById(t)) document.getElementById(t).innerText = "동기화 실패 (자동 재시도중)"; });
-        
-        // 에러 발생 시 3초 뒤 재시도 큐 가동
         setTimeout(() => { saveToCloudStorageAsync(); }, 3000);
     });
 }
 
 function forceSyncToCloud() {
     if(students.length === 0 && !confirm("현재 화면에 학생 데이터가 없습니다. 이대로 빈 데이터를 서버에 덮어씌우시겠습니까?")) return;
-    isCloudSaving = false; // 강제 업로드를 위해 잠시 락 해제
+    isCloudSaving = false; 
     saveToCloudStorageAsync();
     alert(`[${currentActiveSubject}] 반의 대용량 데이터가 서버로 안전하게 분리 업로드되었습니다.\n노트북에서 새로고침 후 확인해 보세요.`);
 }
@@ -433,7 +431,7 @@ function triggerAutoSaveDebounce() {
     
     if(!document.getElementById("planner-page").classList.contains("hidden")) saveCurrentPlannerLocalStorage();
     clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(() => { saveToCloudStorageAsync(); }, 1500); // 디바운스 시간을 1.5초로 늘려 안정성 확보
+    autoSaveTimer = setTimeout(() => { saveToCloudStorageAsync(); }, 1500); 
 }
 
 function setSavingIndicator(isSaving) {
@@ -535,8 +533,6 @@ async function selectSubjectClass(s) {
     document.getElementById("list-page").classList.remove("hidden");
     document.getElementById("active-subject-title").innerText = s;
     
-    // 💡 [강제 서버 업로드] 버튼을 만들고 생성하던 코드 구역을 완전히 제거했습니다.
-    
     document.getElementById("loading-screen").classList.remove("hidden");
     await fetchCloudDatabase();
     document.getElementById("loading-screen").classList.add("hidden");
@@ -544,7 +540,8 @@ async function selectSubjectClass(s) {
     const prefix = `${currentTeacherPassword}_${s}_`;
     const profileKey = `${currentTeacherPassword}_${s}_PROFILE`;
     
-    const subjectRows = globalCloudDatabase.filter(row => row.key.startsWith(prefix));
+    /* ✨ [수정 완료] 프로필 키(_PROFILE)를 완벽히 제외하여 더미 학생 생성을 방지합니다. */
+    const subjectRows = globalCloudDatabase.filter(row => row.key.startsWith(prefix) && row.key !== profileKey);
     const profileRow = globalCloudDatabase.find(row => row.key === profileKey);
     
     let needsMigration = false;
@@ -776,7 +773,7 @@ async function searchStudentAccess() {
                 const std = JSON.parse(row.json);
                 if(std.name === name) {
                     const lastIdx = row.key.lastIndexOf("_");
-                    const prefix = row.key.substring(0, lastIdx + 1); // "비번_과목_" 획득
+                    const prefix = row.key.substring(0, lastIdx + 1); 
                     const pRow = globalCloudDatabase.find(r => r.key === prefix + "PROFILE");
                     let subj = "알수없음"; let tName = "-";
                     if(pRow) {
@@ -798,7 +795,7 @@ async function searchStudentAccess() {
     const box = document.getElementById("student-subject-buttons-box"); box.innerHTML = "";
     studentMatchedBundles.forEach((bundle, idx) => {
         const b = document.createElement("button"); b.className = "subject-select-btn"; b.style.background = "#ffffff"; b.style.border = "2px solid var(--border-color)";
-        b.innerHTML = `📖 <strong>[${bundle.subject}]</strong> 반 눈팅 <span style="float:right; font-size:12px; color:var(--accent-color);">담당:${bundle.teacherName}</span>`;
+        b.innerHTML = `📖 <strong>[${bundle.subject}]</strong> 반 보기 <span style="float:right; font-size:12px; color:var(--accent-color);">담당:${bundle.teacherName}</span>`;
         b.onclick = () => openStudentPlannerView(idx); box.appendChild(b);
     });
 }
@@ -813,7 +810,6 @@ function pushNavigationState(pageId, extraData = {}) {
     }
 }
 
-// 기존 함수 가로채서 히스토리 기록 심기
 if (typeof showSubjectDashboard === "function") {
     const originalShowSubjectDashboard = showSubjectDashboard;
     showSubjectDashboard = function(...args) {
@@ -846,7 +842,6 @@ if (typeof showPlanner === "function") {
     };
 }
 
-// 🚨 뒤로가기 버튼 눌렀을 때 작동하는 센서
 window.onpopstate = function(event) {
     if (!document.getElementById("planner-page").classList.contains("hidden")) {
         saveCurrentPlannerLocalStorage(); 
@@ -885,10 +880,11 @@ window.onpopstate = function(event) {
     }
 };
 
-// 👻 기존 위치에 생성되던 옛날 수동 동기화 버튼을 자동 추적해서 파괴하는 감시 센서
 setInterval(function() {
     const oldBtn = document.getElementById("manual-sync-btn");
-    if (oldBtn) { oldBtn.style.display = "none"; } // 옛날 버튼이 생기면 즉시 숨김 처리
+    if (oldBtn) { oldBtn.style.display = "none"; } 
 }, 300);
     
 </script>
+</body>
+</html>
