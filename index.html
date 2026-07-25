@@ -37,6 +37,7 @@
         .btn-red { background-color: #ff3b30; } 
         .btn-outline { background-color: transparent; border: 1px solid var(--accent-color); color: var(--accent-color); transition: all 0.4s; }
         .btn-outline:hover { background-color: var(--accent-color); color: white; }
+        .btn-sm { padding: 3px 8px; font-size: 11px; border-radius: 8px; }
         
         input, textarea, select { width: 100%; padding: 8px 12px; margin-top: 4px; box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 8px; font-family: inherit; font-size: 13px; background-color: #fbfbfd; transition: border-color 0.4s; }
         input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent-color); background-color: white; }
@@ -51,6 +52,11 @@
         .tab-btn { background-color: transparent; color: #86868b; border: none; border-radius: 15px; padding: 6px 16px; font-weight: 600; cursor: pointer; }
         .tab-btn.active { background-color: #e8e8ed; color: var(--text-color); }
         
+        /* 과목/강의 관리 카드 스타일 */
+        .subject-card { background: #f8f9fa; border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; margin-bottom: 15px; position: relative; }
+        .subject-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .lecture-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+
         .planner-header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 15px; margin-bottom: 20px; border-bottom: 3px solid #1d1d1f; }
         .planner-title { font-size: 24px; font-weight: 700; border: none; background: transparent; width: 60%; padding: 0; margin: 0; color: var(--text-color); font-family: var(--font-family); }
         .student-name-display { font-size: 24px; font-weight: 700; color: var(--text-color); letter-spacing: -0.5px; }
@@ -64,8 +70,6 @@
         .date-wrap { display: block; font-weight: 600; font-size: 11px; color: #555; white-space: nowrap; }
         .day-date-input { width: 22px; text-align: center; border: none; border-bottom: 1px solid #86868b; background: transparent; padding: 0; margin: 0; font-size: 12px; font-weight: 700; color: #1d1d1f; }
         .editable-cell { width: 100%; min-height: 85px; padding: 12px 14px; box-sizing: border-box; outline: none; font-size: 14px; font-weight: 600; line-height: 1.5; word-break: break-all; }
-        .sub-input-row { display: flex; gap: 6px; margin-top: 4px; }
-        .sub-input-row input { margin-top: 0; }
 
         .mode-selection-box { display: flex; gap: 20px; margin-top: 30px; }
         .mode-card { flex: 1; background: #f5f5f7; border: 2px solid transparent; border-radius: 16px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
@@ -95,7 +99,7 @@
 <body>
 
     <div id="global-sync-bar" style="position: fixed; top: 10px; left: 10px; z-index: 9999; display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.9); padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); backdrop-filter: blur(4px);">
-        <span id="global-status-dot" class="status-dot" style="width: 8px; height: 8px; background: #34c759; border-radius: 50%; display: inline-block;"></span>
+        <span id="global-status-dot" class="status-dot"></span>
         <span id="global-status-text" style="font-size: 11px; font-weight: bold; color: #555;">클라우드 연결됨</span>
         <button onclick="forceSyncToCloud()" class="btn-outline" style="font-size: 10px; padding: 2px 8px; margin: 0; border-radius: 12px; height: auto;">☁️ 강제 업로드</button>
     </div>
@@ -203,11 +207,12 @@
             </table>
         </div>
 
+        <!-- 📝 학생 정보 편집 페이지 (개편 완료) -->
         <div id="detail-page" class="hidden no-print">
             <h2>📝 학생 정보 편집</h2>
             <div class="flex-group">
                 <div class="form-group"><label>이름</label><input type="text" id="detail-name"></div>
-                <div class="form-group"><label>나이 (숫자만)</label><input type="number" id="detail-age" oninput="checkAgeFormCondition()"></div>
+                <div class="form-group"><label>나이 (숫자만)</label><input type="number" id="detail-age"></div>
                 <div class="form-group"><label>학교/학년 정보</label><input type="text" id="detail-school"></div>
             </div>
             
@@ -217,55 +222,28 @@
                 <div class="form-group"><label>시험일</label><input type="date" id="detail-exam-date"></div>
             </div>
 
-            <div id="dynamic-subject-fields-box">
-                <div id="form-junior-simple" class="hidden">
-                    <h4>📚 학습 교재 현황</h4>
-                    <div class="form-group">
-                        <label>강사명 / 교재명 및 진도</label>
-                        <div class="sub-input-row">
-                            <input type="text" id="detail-lec-simple-t" placeholder="선생님 이름" style="width: 25%;">
-                            <input type="text" id="detail-lec-simple-b" placeholder="교재 정보 및 현 진도">
-                        </div>
-                    </div>
-                </div>
-
-                <div id="form-senior-detail" class="hidden">
-                    <h4>🔥 고등부 상세 관리 시스템</h4>
-                    <div id="detail-box-kor" class="hidden">
-                        <div class="form-group"><label>독서</label><div class="sub-input-row"><input type="text" id="detail-kor-read-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-kor-read-b" placeholder="교재 및 진도"></div></div>
-                        <div class="form-group"><label>문학</label><div class="sub-input-row"><input type="text" id="detail-kor-lit-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-kor-lit-b" placeholder="교재 및 진도"></div></div>
-                        <div class="form-group"><label>선택 과목</label><select id="detail-kor-opt"><option>언매</option><option>화작</option></select><div class="sub-input-row"><input type="text" id="detail-kor-opt-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-kor-opt-b" placeholder="교재 및 진도"></div></div>
-                    </div>
-                    <div id="detail-box-math" class="hidden">
-                        <div class="form-group"><label>수1</label><div class="sub-input-row"><input type="text" id="detail-math-m1-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-math-m1-b" placeholder="교재 및 진도"></div></div>
-                        <div class="form-group"><label>수2</label><div class="sub-input-row"><input type="text" id="detail-math-m2-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-math-m2-b" placeholder="교재 및 진도"></div></div>
-                        <div class="form-group"><label>선택 과목</label><select id="detail-math-opt"><option>미적</option><option>확통</option><option>기하</option></select><div class="sub-input-row"><input type="text" id="detail-math-opt-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-math-opt-b" placeholder="교재 및 진도"></div></div>
-                    </div>
-                    <div id="detail-box-eng" class="hidden">
-                        <div class="form-group"><label>단어</label><div class="sub-input-row"><input type="text" id="detail-eng-word-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-eng-word-b" placeholder="교재 및 진도"></div></div>
-                        <div class="form-group"><label>듣기</label><div class="sub-input-row"><input type="text" id="detail-eng-listen-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-eng-listen-b" placeholder="교재 및 진도"></div></div>
-                        <div class="form-group"><label>지문</label><div class="sub-input-row"><input type="text" id="detail-eng-text-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-eng-text-b" placeholder="교재 및 진도"></div></div>
-                    </div>
-                    <div id="detail-box-scie" class="hidden">
-                        <div class="form-group" style="background:#f8f9fa; padding:10px; border-radius:8px; margin-bottom:5px;"><label>과탐1</label><select id="detail-scie-1"><option>물리학Ⅰ</option><option>화학Ⅰ</option><option>생명과학Ⅰ</option><option>지구과학Ⅰ</option><option>물리학Ⅱ</option><option>화학Ⅱ</option><option>생명과학Ⅱ</option><option>지구과학Ⅱ</option></select><div class="sub-input-row"><input type="text" id="detail-scie-1-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-scie-1-b" placeholder="교재 및 진도"></div></div>
-                        <div class="form-group" style="background:#f8f9fa; padding:10px; border-radius:8px;"><label>과탐2</label><select id="detail-scie-2"><option>화학Ⅰ</option><option>물리학Ⅰ</option><option>생명과학Ⅰ</option><option>지구과학Ⅰ</option><option>물리학Ⅱ</option><option>화학Ⅱ</option><option>생명과학Ⅱ</option><option>지구과학Ⅱ</option></select><div class="sub-input-row"><input type="text" id="detail-scie-2-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-scie-2-b" placeholder="교재 및 진도"></div></div>
-                    </div>
-                    <div id="detail-box-soc" class="hidden">
-                        <div class="form-group" style="background:#f8f9fa; padding:10px; border-radius:8px; margin-bottom:5px;"><label>사탐1</label><select id="detail-soc-1"><option>생윤</option><option>윤사</option><option>사문</option><option>정법</option><option>경제</option></select><div class="sub-input-row"><input type="text" id="detail-soc-1-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-soc-1-b" placeholder="교재 및 진도"></div></div>
-                        <div class="form-group" style="background:#f8f9fa; padding:10px; border-radius:8px;"><label>사탐2</label><select id="detail-soc-2"><option>사문</option><option>생윤</option><option>윤사</option><option>정법</option><option>경제</option></select><div class="sub-input-row"><input type="text" id="detail-soc-2-t" placeholder="선생님" style="width:25%;"><input type="text" id="detail-soc-2-b" placeholder="교재 및 진도"></div></div>
-                    </div>
-                </div>
+            <!-- 🔥 동적 과목 및 강의 진도 관리 시스템 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 25px; margin-bottom: 10px;">
+                <h4 style="margin: 0;">📚 과목 및 강의/교재 진도 관리 (최대 5개 과목)</h4>
             </div>
+            <div id="dynamic-subjects-container"></div>
+            <button onclick="addSubjectCard()" class="btn-outline" style="width: 100%; padding: 10px; margin-top: 5px; font-weight: bold;">+ 과목 추가 (최대 5개)</button>
 
-            <div class="form-group" style="margin-top:15px;"><label>메모</label><textarea id="detail-memo" rows="2"></textarea></div>
-            <button id="student-save-submit-btn" onclick="saveStudent()">저장 등록하기</button>
-            <button onclick="goToList()" class="btn-gray">취소</button>
+            <!-- 🔒 메모 칸 (시간표 출력 및 상단 박스에는 연동 안 됨) -->
+            <div class="form-group" style="margin-top: 20px;">
+                <label>📌 관리자 전용 메모 (시간표/클리닉 안내문에는 노출되지 않습니다)</label>
+                <textarea id="detail-memo" rows="3" placeholder="학생 성향, 유의사항, 개인 피드백 등 적기"></textarea>
+            </div>
+            
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button id="student-save-submit-btn" onclick="saveStudent()" style="flex: 3; padding: 12px; font-weight: bold;">저장 및 등록</button>
+                <button onclick="goToList()" class="btn-gray" style="flex: 1;">취소</button>
+            </div>
         </div>
 
         <div id="planner-page" class="hidden">
             <div class="status-indicator no-print"><span class="status-dot" id="plan-status-dot"></span><span id="plan-status-text">클라우드 동기화 완료</span></div>
             <div class="no-print" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-                <!-- 🔄 [수정 완료] 직관적인 지난주/이번주 2단 탭으로 개편 -->
                 <div id="week-tabs" class="tab-container">
                     <button class="tab-btn" onclick="changeWeek(0)">지난주</button>
                     <button class="tab-btn active" onclick="changeWeek(1)">이번주</button>
@@ -320,11 +298,13 @@ function initTheme() {
 
 let systemMode = "teacher"; 
 let currentTeacherPassword = ""; let currentActiveSubject = ""; let students = []; let teacherProfileMap = {};
-let currentEditId = null; let currentPlannerStudentId = null; let currentWeekIndex = 1; // 🔄 기본 열람을 '이번주(1)'로 세팅
+let currentEditId = null; let currentPlannerStudentId = null; let currentWeekIndex = 1; 
 let globalCloudDatabase = []; let autoSaveTimer = null; 
 
-let isCloudSaving = false;
-let syncPending = false;
+let isCloudSaving = false; let syncPending = false;
+
+// 💡 학생 정보 편집 시 동적으로 과목 및 강의 데이터를 저장할 임시 배열
+let tempSubjects = [];
 
 window.onload = function() { initTheme(); };
 
@@ -365,8 +345,7 @@ function saveToCloudStorageAsync() {
     })
     .then(res => res.json())
     .then(() => { 
-        isCloudSaving = false;
-        setSavingIndicator(false); 
+        isCloudSaving = false; setSavingIndicator(false); 
         localStorage.setItem(`academy_data_user_${currentTeacherPassword}_sub_${currentActiveSubject}`, JSON.stringify(students)); 
         if(syncPending) { syncPending = false; saveToCloudStorageAsync(); }
     })
@@ -523,7 +502,7 @@ async function selectSubjectClass(s) {
         needsMigration = true;
     }
     
-    sanitizeStudentsData(); // 🔄 [데이터 이민] 2주차 구조로 강제 마이그레이션 실행
+    sanitizeStudentsData();
     displayTeacherProfile(); renderTable();
     if(needsMigration && students.length > 0) saveToCloudStorageAsync();
 }
@@ -556,46 +535,36 @@ function toggleProfileEdit() {
     }
 }
 
-function checkAgeFormCondition() {
-    const age = parseInt(document.getElementById("detail-age").value);
-    const junior = document.getElementById("form-junior-simple"); const senior = document.getElementById("form-senior-detail");
-    ["kor","math","eng","scie","soc"].forEach(b => document.getElementById(`detail-box-${b}`).classList.add("hidden"));
-    if(!age) { junior.classList.add("hidden"); senior.classList.add("hidden"); return; }
-    
-    if(age >= 14) {
-        junior.classList.add("hidden"); senior.classList.remove("hidden");
-        const map = {"국어":"kor","수학":"math","영어":"eng","탐구(과학)":"scie","탐구(사회)":"soc"};
-        const target = map[currentActiveSubject]; if(target) document.getElementById(`detail-box-${target}`).classList.remove("hidden");
-    } else { junior.classList.remove("hidden"); senior.classList.add("hidden"); }
-}
-
-function generateStudentProgressText(s, subject) {
-    let info = "";
-    if(parseInt(s.age) >= 14) {
-        if(subject.includes("국어")) info = `독서: ${s.kor_read_t||'-'} / ${s.kor_read_b||'-'}  |  문학: ${s.kor_lit_t||'-'} / ${s.kor_lit_b||'-'}  |  선택(${s.kor_opt||''}): ${s.kor_opt_t||'-'} / ${s.kor_opt_b||'-'}`;
-        else if(subject.includes("수학")) info = `수1: ${s.math_m1_t||'-'} / ${s.math_m1_b||'-'}  |  수2: ${s.math_m2_t||'-'} / ${s.math_m2_b||'-'}  |  선택(${s.math_opt||''}): ${s.math_opt_t||'-'} / ${s.math_opt_b||'-'}`;
-        else if(subject.includes("영어")) info = `단어: ${s.eng_word_t||'-'} / ${s.eng_word_b||'-'}  |  듣기: ${s.eng_listen_t||'-'} / ${s.eng_listen_b||'-'}  |  지문: ${s.eng_text_t||'-'} / ${s.eng_text_b||'-'}`;
-        else if(subject.includes("탐구(과학)")) info = `${s.scie_1||'과탐1'}: ${s.scie_1_t||'-'} / ${s.scie_1_b||'-'}  |  ${s.scie_2||'과탐2'}: ${s.scie_2_t||'-'} / ${s.scie_2_b||'-'}`;
-        else if(subject.includes("탐구(사회)")) info = `${s.soc_1||'사탐1'}: ${s.soc_1_t||'-'} / ${s.soc_1_b||'-'}  |  ${s.soc_2||'사탐2'}: ${s.soc_2_t||'-'} / ${s.soc_2_b||'-'}`;
-    } else info = `${subject}: ${s.lec_simple_t||'-'} / ${s.lec_simple_b||'-'}`;
-    if(s.memo) info += `\n\n[선생님 메모]\n${s.memo}`;
-    return info;
+// 💡 과목 및 강의 정보 요약 텍스트 생성 (메모 완전 제외 로직 반영)
+function generateStudentProgressText(s) {
+    if (!s.subjects || s.subjects.length === 0) return "수강 및 진도 내역 없음";
+    let parts = [];
+    s.subjects.forEach(sub => {
+        let name = sub.name || "미지정 과목";
+        let lecs = sub.lectures || [];
+        let lecTexts = [];
+        lecs.forEach(l => {
+            if (l.name || l.progress) {
+                lecTexts.push(`${l.name||'강의'}: ${l.progress||'-'}`);
+            }
+        });
+        if (lecTexts.length > 0) {
+            parts.push(`[${name}] ${lecTexts.join(' / ')}`);
+        } else if (sub.name) {
+            parts.push(`[${name}]`);
+        }
+    });
+    return parts.join('  |  ') || "등록된 강의 진도 없음";
 }
 
 function renderTable() {
     const tbody = document.getElementById("student-list-body");
     tbody.innerHTML = students.length ? "" : `<tr><td colspan="5" style="padding:30px; color:#86868b;">학생을 추가해주세요.</td></tr>`;
     students.forEach(s => {
-        const tr = document.createElement("tr"); let simpleInfo = "";
-        if(parseInt(s.age) >= 14) {
-            if(currentActiveSubject.includes("국어")) simpleInfo = `독서:${s.kor_read_t||'-'} 문학:${s.kor_lit_t||'-'}`;
-            else if(currentActiveSubject.includes("수학")) simpleInfo = `수1:${s.math_m1_t||'-'} 수2:${s.math_m2_t||'-'}`;
-            else if(currentActiveSubject.includes("영어")) simpleInfo = `단어:${s.eng_word_t||'-'} 지문:${s.eng_text_t||'-'}`;
-            else if(currentActiveSubject.includes("탐구(과학)")) simpleInfo = `${s.scie_1||'-'} / ${s.scie_2||'-'}`;
-            else simpleInfo = `${s.soc_1||'-'} / ${s.soc_2||'-'}`;
-        } else simpleInfo = `${s.lec_simple_t||'-'} / ${s.lec_simple_b||'-'}`;
+        const tr = document.createElement("tr");
+        const simpleInfo = generateStudentProgressText(s);
         const dday = calculateDDay(s.exam_date);
-        tr.innerHTML = `<td><strong>${s.name}</strong></td><td>${s.age}세 / ${s.school}</td><td>${dday?`<span class="dday-badge">${dday}</span>`:'-'}</td><td style="text-align:left;font-size:11px;">${simpleInfo}</td><td><button onclick="showDetail(${s.id})">수정</button><button onclick="showPlanner(${s.id})" class="btn-outline">계획표</button><button onclick="deleteStudent(${s.id})" class="btn-red">삭제</button></td>`;
+        tr.innerHTML = `<td><strong>${s.name}</strong></td><td>${s.age ? s.age+'세 / ' : ''}${s.school||'-'}</td><td>${dday?`<span class="dday-badge">${dday}</span>`:'-'}</td><td style="text-align:left;font-size:11px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${simpleInfo}</td><td><button onclick="showDetail(${s.id})">수정</button><button onclick="showPlanner(${s.id})" class="btn-outline">계획표</button><button onclick="deleteStudent(${s.id})" class="btn-red">삭제</button></td>`;
         tbody.appendChild(tr);
     });
 }
@@ -608,35 +577,112 @@ function calculateDDay(dateString) {
 
 function deleteStudent(id) { if(confirm("정말 삭제하시겠습니까?")){ students = students.filter(s=>s.id!==id); syncStorage(); renderTable(); }}
 
+// 🛠️ [동적 과목/강의 UI 렌더링 로직 구현]
+function renderSubjectCardsUI() {
+    const container = document.getElementById("dynamic-subjects-container");
+    container.innerHTML = "";
+
+    tempSubjects.forEach((sub, sIdx) => {
+        const card = document.createElement("div");
+        card.className = "subject-card";
+        
+        let lecturesHTML = "";
+        sub.lectures.forEach((lec, lIdx) => {
+            lecturesHTML += `
+                <div class="lecture-row">
+                    <input type="text" placeholder="강의/교재명 (예: 시발점)" value="${lec.name || ''}" oninput="tempSubjects[${sIdx}].lectures[${lIdx}].name = this.value" style="flex: 1;">
+                    <input type="text" placeholder="진도/상태 (예: 3단원 p.45)" value="${lec.progress || ''}" oninput="tempSubjects[${sIdx}].lectures[${lIdx}].progress = this.value" style="flex: 1.5;">
+                    ${sub.lectures.length > 1 ? `<button onclick="removeLectureItem(${sIdx}, ${lIdx})" class="btn-red btn-sm" style="padding: 6px 10px;">✕</button>` : ''}
+                </div>
+            `;
+        });
+
+        card.innerHTML = `
+            <div class="subject-card-header">
+                <input type="text" placeholder="과목명 (예: 수1, 수2, 독서)" value="${sub.name || ''}" oninput="tempSubjects[${sIdx}].name = this.value" style="font-weight: bold; font-size: 14px; width: 60%; margin: 0;">
+                ${tempSubjects.length > 1 ? `<button onclick="removeSubjectCard(${sIdx})" class="btn-red btn-sm">과목 삭제</button>` : ''}
+            </div>
+            <div style="margin-top: 10px;">
+                <label style="font-size: 11px; color: #86868b; font-weight: bold;">강의 및 교재 진도 목록 (최대 10개)</label>
+                ${lecturesHTML}
+            </div>
+            <button onclick="addLectureItem(${sIdx})" class="btn-outline btn-sm" style="margin-top: 8px; width: 100%; border-style: dashed;" ${sub.lectures.length >= 10 ? 'disabled' : ''}>+ 강의/교재 추가 (${sub.lectures.length}/10)</button>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function addSubjectCard() {
+    if (tempSubjects.length >= 5) return alert("과목은 최대 5개까지 추가할 수 있습니다.");
+    tempSubjects.push({ name: "", lectures: [{ name: "", progress: "" }] });
+    renderSubjectCardsUI();
+}
+
+function removeSubjectCard(sIdx) {
+    if (tempSubjects.length <= 1) return alert("최소 1개의 과목 영역은 필요합니다.");
+    tempSubjects.splice(sIdx, 1);
+    renderSubjectCardsUI();
+}
+
+function addLectureItem(sIdx) {
+    if (tempSubjects[sIdx].lectures.length >= 10) return alert("한 과목당 강의/교재는 최대 10개까지 추가할 수 있습니다.");
+    tempSubjects[sIdx].lectures.push({ name: "", progress: "" });
+    renderSubjectCardsUI();
+}
+
+function removeLectureItem(sIdx, lIdx) {
+    tempSubjects[sIdx].lectures.splice(lIdx, 1);
+    renderSubjectCardsUI();
+}
+
 function showDetail(id) {
     document.getElementById("list-page").classList.add("hidden"); document.getElementById("detail-page").classList.remove("hidden");
     const btn = document.getElementById("student-save-submit-btn"); if(btn) btn.disabled = false;
+    
     if(id==='new') {
-        currentEditId = null; document.querySelectorAll("#detail-page input, #detail-page textarea").forEach(i=>i.value=""); checkAgeFormCondition();
+        currentEditId = null; 
+        document.querySelectorAll("#detail-page input, #detail-page textarea").forEach(i=>i.value="");
+        tempSubjects = [{ name: "수학Ⅰ", lectures: [{ name: "", progress: "" }] }];
     } else {
         const s = students.find(x=>x.id===id); currentEditId=id;
-        document.getElementById("detail-name").value=s.name; document.getElementById("detail-age").value=s.age; document.getElementById("detail-school").value=s.school;
-        document.getElementById("detail-exam-name").value=s.exam_name||""; document.getElementById("detail-exam-date").value=s.exam_date||"";
-        checkAgeFormCondition();
-        const fields = ["lec_simple_t","lec_simple_b","kor_read_t","kor_read_b","kor_lit_t","kor_lit_b","kor_opt","kor_opt_t","kor_opt_b","math_m1_t","math_m1_b","math_m2_t","math_m2_b","math_opt","math_opt_t","math_opt_b","eng_word_t","eng_word_b","eng_listen_t","eng_listen_b","eng_text_t","eng_text_b","scie_1","scie_1_t","scie_1_b","scie_2","scie_2_t","scie_2_b","soc_1","soc_1_t","soc_1_b","soc_2","soc_2_t","soc_2_b","memo"];
-        fields.forEach(f => { if(document.getElementById(`detail-${f}`)) document.getElementById(`detail-${f}`).value = s[f] || ""; });
+        document.getElementById("detail-name").value=s.name || ""; 
+        document.getElementById("detail-age").value=s.age || ""; 
+        document.getElementById("detail-school").value=s.school || "";
+        document.getElementById("detail-exam-name").value=s.exam_name||""; 
+        document.getElementById("detail-exam-date").value=s.exam_date||"";
+        document.getElementById("detail-memo").value=s.memo || "";
+        
+        if (s.subjects && s.subjects.length > 0) {
+            tempSubjects = JSON.parse(JSON.stringify(s.subjects));
+        } else {
+            tempSubjects = [{ name: "수학Ⅰ", lectures: [{ name: s.lec_simple_t||"", progress: s.lec_simple_b||"" }] }];
+        }
     }
+    renderSubjectCardsUI();
 }
 
 function saveStudent() {
     const btn = document.getElementById("student-save-submit-btn");
     if(btn) btn.disabled = true;
     const name = document.getElementById("detail-name").value.trim(); const age = document.getElementById("detail-age").value;
-    if(!name || !age) { alert("필수 입력 누락"); if(btn) btn.disabled = false; return; }
-    const data = { name, age, school: document.getElementById("detail-school").value, exam_name: document.getElementById("detail-exam-name").value, exam_date: document.getElementById("detail-exam-date").value };
-    const fields = ["lec_simple_t","lec_simple_b","kor_read_t","kor_read_b","kor_lit_t","kor_lit_b","kor_opt","kor_opt_t","kor_opt_b","math_m1_t","math_m1_b","math_m2_t","math_m2_b","math_opt","math_opt_t","math_opt_b","eng_word_t","eng_word_b","eng_listen_t","eng_listen_b","eng_text_t","eng_text_b","scie_1","scie_1_t","scie_1_b","scie_2","scie_2_t","scie_2_b","soc_1","soc_1_t","soc_1_b","soc_2","soc_2_t","soc_2_b","memo"];
-    fields.forEach(f => { if(document.getElementById(`detail-${f}`)) data[f] = document.getElementById(`detail-${f}`).value; });
+    if(!name) { alert("학생 이름을 입력해 주세요."); if(btn) btn.disabled = false; return; }
+    
+    const data = { 
+        name, 
+        age, 
+        school: document.getElementById("detail-school").value, 
+        exam_name: document.getElementById("detail-exam-name").value, 
+        exam_date: document.getElementById("detail-exam-date").value,
+        memo: document.getElementById("detail-memo").value,
+        subjects: tempSubjects 
+    };
+
     if(currentEditId) { const i = students.findIndex(x=>x.id===currentEditId); students[i] = {...students[i], ...data}; }
     else students.push({id: Date.now(), ...data, planners: createEmptyPlanners()});
+    
     syncStorage(); goToList();
 }
 
-// 🔄 [수정 완료] 이제 기본 계획표 생성 시 2주 분량만 생성합니다.
 function createEmptyPlanners() {
     return [
         createSinglePlannerInstance("지난주 학습 계획"),
@@ -653,7 +699,6 @@ function createSinglePlannerInstance(titleText) {
     };
 }
 
-// 🔄 [데이터 구조 마이그레이션] 기존 1주차를 '지난주'로 승격하고 2,3,4주차는 자동 정리합니다.
 function sanitizeStudentsData() {
     students.forEach(s => {
         if (!s.planners || s.planners.length !== 2) {
@@ -667,25 +712,16 @@ function sanitizeStudentsData() {
     });
 }
 
-// 🔄 [수정 완료] 원장님 토요일 루틴에 완벽히 대응하는 상대적 날짜 자동 매칭 시스템
 function autoFillDatesByWeekIndex(weekIndex) {
     let today = new Date();
-    let day = today.getDay(); // 0:일, 1:월, ..., 6:토
+    let day = today.getDay();
     let sat1 = new Date(today);
     
-    // 이번 사이클의 시작 토요일(Sat1)을 고정식으로 역산
-    if (day === 6) {
-        sat1.setDate(today.getDate());
-    } else if (day === 0) {
-        sat1.setDate(today.getDate() - 1);
-    } else {
-        sat1.setDate(today.getDate() + (6 - day));
-    }
+    if (day === 6) sat1.setDate(today.getDate());
+    else if (day === 0) sat1.setDate(today.getDate() - 1);
+    else sat1.setDate(today.getDate() + (6 - day));
     
-    // 만약 탭이 '지난주(0)'라면 정확히 7일 전으로 오프셋 조정
-    if (weekIndex === 0) {
-        sat1.setDate(sat1.getDate() - 7);
-    }
+    if (weekIndex === 0) sat1.setDate(sat1.getDate() - 7);
     
     const order = ['sat1','sun','mon','tue','wed','thu','fri','sat2'];
     order.forEach((name, i) => {
@@ -697,7 +733,7 @@ function autoFillDatesByWeekIndex(weekIndex) {
 }
 
 function showPlanner(id) {
-    currentPlannerStudentId=id; currentWeekIndex=1; // 🔄 진입 시 '이번주(1)'를 디폴트로 우선 노출
+    currentPlannerStudentId=id; currentWeekIndex=1;
     document.getElementById("list-page").classList.add("hidden"); document.getElementById("student-subjects-page").classList.add("hidden");
     document.getElementById("planner-page").classList.remove("hidden");
     const s = students.find(x=>x.id===id); document.getElementById("planner-student-name").innerText = s.name;
@@ -723,18 +759,18 @@ function renderPlannerWeek() {
     const tabs = document.querySelectorAll(".tab-btn"); tabs.forEach((t, i) => t.classList.toggle("active", i===currentWeekIndex));
     document.getElementById("plan-title").value = p.title;
     
-    document.getElementById("planner-top-info-box").innerText = p.top_info || generateStudentProgressText(s, currentActiveSubject);
+    // 💡 메모는 포함시키지 않고, 순수 과목/강의 진도 요약만 상단 박스에 띄웁니다.
+    document.getElementById("planner-top-info-box").innerText = p.top_info || generateStudentProgressText(s);
 
     const days = ["sat1","sun","mon","tue","wed","thu","fri","sat2","comment"];
     days.forEach(d => document.getElementById(`plan-${d}`).innerHTML = p[d] || "");
     const dZone = document.getElementById("planner-dday-zone"); const dText = calculateDDay(s.exam_date);
-    dZone.innerHTML = dText ? `<span class="dday-badge">${s.exam_name}: ${dText}</span>` : "";
+    dZone.innerHTML = dText ? `<span class="dday-badge">${s.exam_name||'시험'}: ${dText}</span>` : "";
     const dates = p.dates || {};
     days.filter(d=>d!=='comment').forEach(d => {
         document.getElementById(`date-${d}-m`).value = dates[`${d}_m`] || ""; document.getElementById(`date-${d}-d`).value = dates[`${d}_d`] || "";
     });
     
-    // 🔄 날짜가 비어 있다면 원장님 편의를 위해 자동으로 완벽하게 채워줍니다.
     if(!dates.sat1_m && systemMode === 'teacher') {
         autoFillDatesByWeekIndex(currentWeekIndex);
     }
@@ -786,7 +822,6 @@ async function searchStudentAccess() {
                     const allStdsRows = globalCloudDatabase.filter(r => r.key.startsWith(prefix) && !r.key.endsWith("_PROFILE"));
                     const allStds = allStdsRows.map(r => JSON.parse(r.json));
                     
-                    // 학생 검색 시에도 2주차 구조로 동기화 가공 처리
                     allStds.forEach(s => {
                         if (!s.planners || s.planners.length !== 2) {
                             let old = s.planners || [];
