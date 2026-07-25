@@ -79,57 +79,21 @@
 
         @keyframes blink { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
 
-        /* ✨ 프린트 버그 수정 완료 구역 */
         @media print {
-            @page {
-                margin: 15mm 10mm 10mm 10mm; /* 프린트 여백 표준화 */
-            }
-            body {
-                padding: 0 !important;
-                margin: 0 !important;
-                background-color: #ffffff !important;
-            }
-            .container {
-                max-width: 100% !important;
-                width: 100% !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                box-shadow: none !important;
-                background: transparent !important;
-            }
-            /* 프린트 전용 숨김 목록 최적화 */
-            .no-print, 
-            #global-sync-bar, 
-            .status-indicator, 
-            .branding-mark,
-            #week-tabs,
-            #planner-exit-btn-zone,
-            button {
-                display: none !important;
-                visibility: hidden !important;
-                height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-            }
-            #print-area {
-                margin-top: 0 !important;
-                padding-top: 0 !important;
-            }
-            .planner-header {
-                margin-top: 0 !important;
-            }
-            textarea, .editable-cell {
-                border: 1px solid #ddd !important;
-                background: transparent !important;
-            }
+            @page { margin: 15mm 10mm 10mm 10mm; }
+            body { padding: 0 !important; margin: 0 !important; background-color: #ffffff !important; }
+            .container { max-width: 100% !important; width: 100% !important; padding: 0 !important; margin: 0 !important; box-shadow: none !important; background: transparent !important; }
+            .no-print, #global-sync-bar, .status-indicator, .branding-mark, #week-tabs, #planner-exit-btn-zone, button { display: none !important; visibility: hidden !important; height: 0 !important; margin: 0 !important; padding: 0 !important; }
+            #print-area { margin-top: 0 !important; padding-top: 0 !important; }
+            .planner-header { margin-top: 0 !important; }
+            textarea, .editable-cell { border: 1px solid #ddd !important; background: transparent !important; }
         }
         
         .loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.7); display: flex; justify-content: center; align-items: center; z-index: 100; font-weight: 600; border-radius: var(--border-radius); font-size: 16px; color: var(--accent-color); }
     </style>
-
 </head>
 <body>
-    <!-- 좌측 상단 고정 고동기화 제어 바 -->
+
     <div id="global-sync-bar" style="position: fixed; top: 10px; left: 10px; z-index: 9999; display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.9); padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); backdrop-filter: blur(4px);">
         <span id="global-status-dot" class="status-dot" style="width: 8px; height: 8px; background: #34c759; border-radius: 50%; display: inline-block;"></span>
         <span id="global-status-text" style="font-size: 11px; font-weight: bold; color: #555;">클라우드 연결됨</span>
@@ -139,7 +103,6 @@
     <div class="branding-mark no-print">Made by JUNSUH</div>
 
     <div class="container" id="main-container">
-        <!-- 동기화 로딩 화면 -->
         <div id="loading-screen" class="loading-overlay hidden">서버와 동기화 중입니다...</div>
 
         <div id="gate-page">
@@ -224,7 +187,7 @@
                 <div class="flex-group">
                     <div class="form-group"><label>성함</label><input type="text" id="edit-prof-name" oninput="triggerAutoSaveDebounce()"></div>
                     <div class="form-group"><label>근무 요일</label><input type="text" id="edit-prof-days" oninput="triggerAutoSaveDebounce()"></div>
-                    <div class="form-group"><label>근무 시간</label><input type="text" id="edit-prof-hours" oninput="triggerAutoSaveDebounce()"></div>
+                    <div class="form-group"><label>근무 시간</label><input type="text" id="edit-prof-hours" oninput="toggleProfileEdit()"></div>
                 </div>
                 <button onclick="toggleProfileEdit()" style="padding: 4px 12px;">완료</button>
             </div>
@@ -302,11 +265,10 @@
         <div id="planner-page" class="hidden">
             <div class="status-indicator no-print"><span class="status-dot" id="plan-status-dot"></span><span id="plan-status-text">클라우드 동기화 완료</span></div>
             <div class="no-print" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <!-- 🔄 [수정 완료] 직관적인 지난주/이번주 2단 탭으로 개편 -->
                 <div id="week-tabs" class="tab-container">
-                    <button class="tab-btn active" onclick="changeWeek(0)">1주차</button>
-                    <button class="tab-btn" onclick="changeWeek(1)">2주차</button>
-                    <button class="tab-btn" onclick="changeWeek(2)">3주차</button>
-                    <button class="tab-btn" onclick="changeWeek(3)">4주차</button>
+                    <button class="tab-btn" onclick="changeWeek(0)">지난주</button>
+                    <button class="tab-btn active" onclick="changeWeek(1)">이번주</button>
                 </div>
                 <div id="planner-exit-btn-zone">
                     <button onclick="goToList()" class="btn-gray" id="planner-back-list-btn">◀ 목록으로</button>
@@ -316,7 +278,7 @@
 
             <div id="print-area">
                 <div class="planner-header">
-                    <input type="text" class="planner-title" id="plan-title" oninput="autoFillDates(this.value); triggerAutoSaveDebounce();">
+                    <input type="text" class="planner-title" id="plan-title" oninput="triggerAutoSaveDebounce();">
                     <div class="student-info-display">
                         <div class="student-name-display" id="planner-student-name"></div>
                         <div id="planner-dday-zone"></div>
@@ -358,7 +320,7 @@ function initTheme() {
 
 let systemMode = "teacher"; 
 let currentTeacherPassword = ""; let currentActiveSubject = ""; let students = []; let teacherProfileMap = {};
-let currentEditId = null; let currentPlannerStudentId = null; let currentWeekIndex = 0;
+let currentEditId = null; let currentPlannerStudentId = null; let currentWeekIndex = 1; // 🔄 기본 열람을 '이번주(1)'로 세팅
 let globalCloudDatabase = []; let autoSaveTimer = null; 
 
 let isCloudSaving = false;
@@ -421,7 +383,7 @@ function forceSyncToCloud() {
     if(students.length === 0 && !confirm("현재 화면에 학생 데이터가 없습니다. 이대로 빈 데이터를 서버에 덮어씌우시겠습니까?")) return;
     isCloudSaving = false; 
     saveToCloudStorageAsync();
-    alert(`[${currentActiveSubject}] 반의 대용량 데이터가 서버로 안전하게 분리 업로드되었습니다.\n노트북에서 새로고침 후 확인해 보세요.`);
+    alert(`[${currentActiveSubject}] 반의 데이터가 서버로 안전하게 업로드되었습니다.`);
 }
 
 function triggerAutoSaveDebounce() {
@@ -540,7 +502,6 @@ async function selectSubjectClass(s) {
     const prefix = `${currentTeacherPassword}_${s}_`;
     const profileKey = `${currentTeacherPassword}_${s}_PROFILE`;
     
-    /* ✨ [수정 완료] 프로필 키(_PROFILE)를 완벽히 제외하여 더미 학생 생성을 방지합니다. */
     const subjectRows = globalCloudDatabase.filter(row => row.key.startsWith(prefix) && row.key !== profileKey);
     const profileRow = globalCloudDatabase.find(row => row.key === profileKey);
     
@@ -562,6 +523,7 @@ async function selectSubjectClass(s) {
         needsMigration = true;
     }
     
+    sanitizeStudentsData(); // 🔄 [데이터 이민] 2주차 구조로 강제 마이그레이션 실행
     displayTeacherProfile(); renderTable();
     if(needsMigration && students.length > 0) saveToCloudStorageAsync();
 }
@@ -674,31 +636,68 @@ function saveStudent() {
     syncStorage(); goToList();
 }
 
+// 🔄 [수정 완료] 이제 기본 계획표 생성 시 2주 분량만 생성합니다.
 function createEmptyPlanners() {
-    return Array.from({length: 4}, (_, i) => ({
-        title: `${new Date().getMonth()+1}월 ${i+1}주차 학습 계획`,
+    return [
+        createSinglePlannerInstance("지난주 학습 계획"),
+        createSinglePlannerInstance("이번주 학습 계획")
+    ];
+}
+
+function createSinglePlannerInstance(titleText) {
+    return {
+        title: titleText,
         sat1: "🎯 클리닉 수업 및 테스트", sun: "보충 및 오답 정리", mon: "", tue: "", wed: "", thu: "", fri: "",
         sat2: "🔥 오답 재테스트 및 점검", comment: "수고 많았습니다!", top_info: "",
         dates: { sat1_m:"",sat1_d:"",sun_m:"",sun_d:"",mon_m:"",mon_d:"",tue_m:"",tue_d:"",wed_m:"",wed_d:"",thu_m:"",thu_d:"",fri_m:"",fri_d:"",sat2_m:"",sat2_d:"" }
-    }));
+    };
 }
 
-function autoFillDates(titleValue) {
-    const match = titleValue.match(/(\d+)\s*월\s*(\d+)\s*주차/); if (!match) return;
-    const m = parseInt(match[1]); const w = parseInt(match[2]); if (m < 1 || m > 12 || w < 1 || w > 6) return;
-    let d = new Date(new Date().getFullYear(), m - 1, 1);
-    let day = d.getDay(); let diff = (day === 6) ? 0 : 6 - day;
-    if (diff > 0) d.setDate(d.getDate() + diff - 7); else d.setDate(d.getDate() + diff);
-    d.setDate(d.getDate() + (w - 1) * 7);
+// 🔄 [데이터 구조 마이그레이션] 기존 1주차를 '지난주'로 승격하고 2,3,4주차는 자동 정리합니다.
+function sanitizeStudentsData() {
+    students.forEach(s => {
+        if (!s.planners || s.planners.length !== 2) {
+            let old = s.planners || [];
+            let lastWeek = old[0] || createSinglePlannerInstance("지난주 학습 계획");
+            let thisWeek = old[1] || createSinglePlannerInstance("이번주 학습 계획");
+            lastWeek.title = "지난주 학습 계획";
+            thisWeek.title = "이번주 학습 계획";
+            s.planners = [lastWeek, thisWeek];
+        }
+    });
+}
+
+// 🔄 [수정 완료] 원장님 토요일 루틴에 완벽히 대응하는 상대적 날짜 자동 매칭 시스템
+function autoFillDatesByWeekIndex(weekIndex) {
+    let today = new Date();
+    let day = today.getDay(); // 0:일, 1:월, ..., 6:토
+    let sat1 = new Date(today);
+    
+    // 이번 사이클의 시작 토요일(Sat1)을 고정식으로 역산
+    if (day === 6) {
+        sat1.setDate(today.getDate());
+    } else if (day === 0) {
+        sat1.setDate(today.getDate() - 1);
+    } else {
+        sat1.setDate(today.getDate() + (6 - day));
+    }
+    
+    // 만약 탭이 '지난주(0)'라면 정확히 7일 전으로 오프셋 조정
+    if (weekIndex === 0) {
+        sat1.setDate(sat1.getDate() - 7);
+    }
+    
     const order = ['sat1','sun','mon','tue','wed','thu','fri','sat2'];
     order.forEach((name, i) => {
-        let t = new Date(d); t.setDate(d.getDate() + i);
-        document.getElementById(`date-${name}-m`).value = t.getMonth() + 1; document.getElementById(`date-${name}-d`).value = t.getDate();
+        let targetDate = new Date(sat1);
+        targetDate.setDate(sat1.getDate() + i);
+        document.getElementById(`date-${name}-m`).value = targetDate.getMonth() + 1;
+        document.getElementById(`date-${name}-d`).value = targetDate.getDate();
     });
 }
 
 function showPlanner(id) {
-    currentPlannerStudentId=id; currentWeekIndex=0;
+    currentPlannerStudentId=id; currentWeekIndex=1; // 🔄 진입 시 '이번주(1)'를 디폴트로 우선 노출
     document.getElementById("list-page").classList.add("hidden"); document.getElementById("student-subjects-page").classList.add("hidden");
     document.getElementById("planner-page").classList.remove("hidden");
     const s = students.find(x=>x.id===id); document.getElementById("planner-student-name").innerText = s.name;
@@ -734,7 +733,11 @@ function renderPlannerWeek() {
     days.filter(d=>d!=='comment').forEach(d => {
         document.getElementById(`date-${d}-m`).value = dates[`${d}_m`] || ""; document.getElementById(`date-${d}-d`).value = dates[`${d}_d`] || "";
     });
-    if(!dates.sat1_m && systemMode === 'teacher') autoFillDates(p.title);
+    
+    // 🔄 날짜가 비어 있다면 원장님 편의를 위해 자동으로 완벽하게 채워줍니다.
+    if(!dates.sat1_m && systemMode === 'teacher') {
+        autoFillDatesByWeekIndex(currentWeekIndex);
+    }
 }
 
 function saveCurrentPlannerLocalStorage() {
@@ -783,6 +786,15 @@ async function searchStudentAccess() {
                     const allStdsRows = globalCloudDatabase.filter(r => r.key.startsWith(prefix) && !r.key.endsWith("_PROFILE"));
                     const allStds = allStdsRows.map(r => JSON.parse(r.json));
                     
+                    // 학생 검색 시에도 2주차 구조로 동기화 가공 처리
+                    allStds.forEach(s => {
+                        if (!s.planners || s.planners.length !== 2) {
+                            let old = s.planners || [];
+                            s.planners = [old[0] || createSinglePlannerInstance("지난주 학습 계획"), old[1] || createSinglePlannerInstance("이번주 학습 계획")];
+                            s.planners[0].title = "지난주 학습 계획"; s.planners[1].title = "이번주 학습 계획";
+                        }
+                    });
+                    
                     studentMatchedBundles.push({ subject: subj, teacherName: tName, studentObj: std, allStudentsInSub: allStds });
                 }
             } catch(e){}
@@ -803,55 +815,35 @@ async function searchStudentAccess() {
 function openStudentPlannerView(idx) { const targetBundle = studentMatchedBundles[idx]; currentActiveSubject = targetBundle.subject; students = targetBundle.allStudentsInSub; document.getElementById("student-subjects-page").classList.add("hidden"); showPlanner(targetBundle.studentObj.id); }
 function backToStudentSubjects() { document.getElementById("planner-page").classList.add("hidden"); document.getElementById("student-subjects-page").classList.remove("hidden"); }
 function backToStudentSearch() { document.getElementById("student-subjects-page").classList.add("hidden"); document.getElementById("student-search-page").classList.remove("hidden"); }
+
 function pushNavigationState(pageId, extraData = {}) {
     const state = { page: pageId, subject: currentActiveSubject, studentId: currentPlannerStudentId, ...extraData };
-    if (!history.state || history.state.page !== pageId) {
-        history.pushState(state, "");
-    }
+    if (!history.state || history.state.page !== pageId) { history.pushState(state, ""); }
 }
 
 if (typeof showSubjectDashboard === "function") {
     const originalShowSubjectDashboard = showSubjectDashboard;
-    showSubjectDashboard = function(...args) {
-        originalShowSubjectDashboard(...args);
-        pushNavigationState("dashboard");
-    };
+    showSubjectDashboard = function(...args) { originalShowSubjectDashboard(...args); pushNavigationState("dashboard"); };
 }
-
 if (typeof selectSubjectClass === "function") {
     const originalSelectSubjectClass = selectSubjectClass;
-    selectSubjectClass = function(...args) {
-        originalSelectSubjectClass(...args);
-        pushNavigationState("list");
-    };
+    selectSubjectClass = function(...args) { originalSelectSubjectClass(...args); pushNavigationState("list"); };
 }
-
 if (typeof showDetail === "function") {
     const originalShowDetail = showDetail;
-    showDetail = function(...args) {
-        originalShowDetail(...args);
-        pushNavigationState("detail");
-    };
+    showDetail = function(...args) { originalShowDetail(...args); pushNavigationState("detail"); };
 }
-
 if (typeof showPlanner === "function") {
     const originalShowPlanner = showPlanner;
-    showPlanner = function(...args) {
-        originalShowPlanner(...args);
-        pushNavigationState("planner");
-    };
+    showPlanner = function(...args) { originalShowPlanner(...args); pushNavigationState("planner"); };
 }
 
 window.onpopstate = function(event) {
-    if (!document.getElementById("planner-page").classList.contains("hidden")) {
-        saveCurrentPlannerLocalStorage(); 
-    }
+    if (!document.getElementById("planner-page").classList.contains("hidden")) { saveCurrentPlannerLocalStorage(); }
     if (!document.getElementById("detail-page").classList.contains("hidden")) {
         const name = document.getElementById("detail-name").value.trim();
         if (name && currentEditId === null) {
-            if(confirm("작성 중인 학생 정보가 있습니다. 저장하고 이동하시겠습니까?")) {
-                saveStudent(); return;
-            }
+            if(confirm("작성 중인 학생 정보가 있습니다. 저장하고 이동하시겠습니까?")) { saveStudent(); return; }
         }
     }
 
@@ -867,24 +859,18 @@ window.onpopstate = function(event) {
             document.getElementById("subject-dashboard-page").classList.remove("hidden");
             if (typeof showSubjectDashboard === "function") originalShowSubjectDashboard();
         } else if (page === "list") {
-            document.getElementById("list-page").classList.remove("hidden");
-            renderTable();
+            document.getElementById("list-page").classList.remove("hidden"); renderTable();
         } else if (page === "detail") {
             document.getElementById("detail-page").classList.remove("hidden");
         } else if (page === "planner") {
-            document.getElementById("planner-page").classList.remove("hidden");
-            renderPlannerWeek();
+            document.getElementById("planner-page").classList.remove("hidden"); renderPlannerWeek();
         }
-    } else {
-        backToGate();
-    }
+    } else { backToGate(); }
 };
 
 setInterval(function() {
-    const oldBtn = document.getElementById("manual-sync-btn");
-    if (oldBtn) { oldBtn.style.display = "none"; } 
+    const oldBtn = document.getElementById("manual-sync-btn"); if (oldBtn) { oldBtn.style.display = "none"; } 
 }, 300);
-    
 </script>
 </body>
 </html>
