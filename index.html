@@ -52,7 +52,6 @@
         .tab-btn { background-color: transparent; color: #86868b; border: none; border-radius: 15px; padding: 6px 16px; font-weight: 600; cursor: pointer; }
         .tab-btn.active { background-color: #e8e8ed; color: var(--text-color); }
         
-        /* 과목/강의 관리 카드 스타일 */
         .subject-card { background: #f8f9fa; border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; margin-bottom: 15px; position: relative; }
         .subject-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .lecture-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
@@ -242,8 +241,9 @@
             <div class="status-indicator no-print"><span class="status-dot" id="plan-status-dot"></span><span id="plan-status-text">클라우드 동기화 완료</span></div>
             <div class="no-print" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div id="week-tabs" class="tab-container">
-                    <button class="tab-btn" onclick="changeWeek(0)">지난주</button>
-                    <button class="tab-btn active" onclick="changeWeek(1)">이번주</button>
+                    <!-- 이번주를 첫번째 탭(0번), 지난주를 두번째 탭(1번)으로 배치 -->
+                    <button class="tab-btn active" onclick="changeWeek(0)">이번주</button>
+                    <button class="tab-btn" onclick="changeWeek(1)">지난주</button>
                 </div>
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <button id="shift-week-btn" onclick="shiftThisWeekToLastWeek()" class="btn-outline" style="border-color: #ff9500; color: #d97706; font-weight: bold;">📦 이번주 수강내역 지난주로 이동</button>
@@ -298,7 +298,8 @@ function initTheme() {
 
 let systemMode = "teacher"; 
 let currentTeacherPassword = ""; let currentActiveSubject = ""; let students = []; let teacherProfileMap = {};
-let currentEditId = null; let currentPlannerStudentId = null; let currentWeekIndex = 1; 
+let currentEditId = null; let currentPlannerStudentId = null; 
+let currentWeekIndex = 0; // 0: 이번주 (메인), 1: 지난주
 let globalCloudDatabase = []; let autoSaveTimer = null; 
 
 let isCloudSaving = false; let syncPending = false;
@@ -533,33 +534,10 @@ function toggleProfileEdit() {
     }
 }
 
-// 🎯 [요청 반영 1] 학생 목록 표의 '수강 현황' 컬럼에는 과목명만 연달아 표시
 function getSubjectNamesOnly(s) {
     if (!s.subjects || s.subjects.length === 0) return "-";
     const names = s.subjects.map(sub => sub.name).filter(n => n && n.trim() !== "");
     return names.length > 0 ? names.join(", ") : "-";
-}
-
-// 스케줄표 상단 박스용 상세 진도 요약 텍스트
-function generateStudentProgressText(s) {
-    if (!s.subjects || s.subjects.length === 0) return "수강 및 진도 내역 없음";
-    let parts = [];
-    s.subjects.forEach(sub => {
-        let name = sub.name || "미지정 과목";
-        let lecs = sub.lectures || [];
-        let lecTexts = [];
-        lecs.forEach(l => {
-            if (l.name || l.progress) {
-                lecTexts.push(`${l.name||'강의'}: ${l.progress||'-'}`);
-            }
-        });
-        if (lecTexts.length > 0) {
-            parts.push(`[${name}] ${lecTexts.join(' / ')}`);
-        } else if (sub.name) {
-            parts.push(`[${name}]`);
-        }
-    });
-    return parts.join('  |  ') || "등록된 강의 진도 없음";
 }
 
 function renderTable() {
@@ -567,7 +545,7 @@ function renderTable() {
     tbody.innerHTML = students.length ? "" : `<tr><td colspan="5" style="padding:30px; color:#86868b;">학생을 추가해주세요.</td></tr>`;
     students.forEach(s => {
         const tr = document.createElement("tr");
-        const subjectNamesList = getSubjectNamesOnly(s); // 과목명만 추출
+        const subjectNamesList = getSubjectNamesOnly(s);
         const dday = calculateDDay(s.exam_date);
         tr.innerHTML = `<td><strong>${s.name}</strong></td><td>${s.age ? s.age+'세 / ' : ''}${s.school||'-'}</td><td>${dday?`<span class="dday-badge">${dday}</span>`:'-'}</td><td style="text-align:center; font-size:13px; font-weight:600; color:#3b5bdb;">${subjectNamesList}</td><td><button onclick="showDetail(${s.id})">수정</button><button onclick="showPlanner(${s.id})" class="btn-outline">계획표</button><button onclick="deleteStudent(${s.id})" class="btn-red">삭제</button></td>`;
         tbody.appendChild(tr);
@@ -687,10 +665,11 @@ function saveStudent() {
     syncStorage(); goToList();
 }
 
+// 🎯 index 0: 이번주 (메인), index 1: 지난주
 function createEmptyPlanners() {
     return [
-        createSinglePlannerInstance("지난주 학습 계획"),
-        createSinglePlannerInstance("이번주 학습 계획")
+        createSinglePlannerInstance("이번주 학습 계획"),
+        createSinglePlannerInstance("지난주 학습 계획")
     ];
 }
 
@@ -698,21 +677,79 @@ function createSinglePlannerInstance(titleText) {
     return {
         title: titleText,
         sat1: "🎯 클리닉 수업 및 테스트", sun: "보충 및 오답 정리", mon: "", tue: "", wed: "", thu: "", fri: "",
-        sat2: "🔥 오답 재테스트 및 점검", comment: "수고 많았습니다!", top_info: "",
+        sat2: "🔥 오답 재테스트 및 점검", comment: "수고 많았습니다!", top_info: "", // 메모란은 공란("")
         dates: { sat1_m:"",sat1_d:"",sun_m:"",sun_d:"",mon_m:"",mon_d:"",tue_m:"",tue_d:"",wed_m:"",wed_d:"",thu_m:"",thu_d:"",fri_m:"",fri_d:"",sat2_m:"",sat2_d:"" }
     };
 }
 
+// 날짜 계산 헬퍼 (+N일 계산)
+function addDaysToDate(m, d, daysToAdd = 7) {
+    if (!m || !d || isNaN(m) || isNaN(d)) return { m: "", d: "" };
+    const now = new Date();
+    const year = now.getFullYear();
+    const dateObj = new Date(year, parseInt(m, 10) - 1, parseInt(d, 10) + parseInt(daysToAdd, 10));
+    return {
+        m: dateObj.getMonth() + 1,
+        d: dateObj.getDate()
+    };
+}
+
+// 지난주(index 1) 날짜 기반으로 이번주(index 0) 날짜 자동 계산 (+7일)
+function updateThisWeekDatesFromLastWeek(s, force = false) {
+    if (!s.planners || s.planners.length < 2) return;
+    const thisWeek = s.planners[0];
+    const lastWeek = s.planners[1];
+    if (!thisWeek.dates) thisWeek.dates = {};
+    
+    if (lastWeek && lastWeek.dates) {
+        const dayKeys = ['sat1','sun','mon','tue','wed','thu','fri','sat2'];
+        dayKeys.forEach(day => {
+            const lM = lastWeek.dates[`${day}_m`];
+            const lD = lastWeek.dates[`${day}_d`];
+            if (lM && lD) {
+                if (force || !thisWeek.dates[`${day}_m`] || !thisWeek.dates[`${day}_d`]) {
+                    const nextDate = addDaysToDate(lM, lD, 7);
+                    thisWeek.dates[`${day}_m`] = nextDate.m;
+                    thisWeek.dates[`${day}_d`] = nextDate.d;
+                }
+            }
+        });
+    }
+}
+
+// 기존 데이터가 '지난주'로 보존되도록 배열 구조 보정
 function sanitizeStudentsData() {
     students.forEach(s => {
-        if (!s.planners || s.planners.length !== 2) {
-            let old = s.planners || [];
-            let lastWeek = old[0] || createSinglePlannerInstance("지난주 학습 계획");
-            let thisWeek = old[1] || createSinglePlannerInstance("이번주 학습 계획");
-            lastWeek.title = "지난주 학습 계획";
-            thisWeek.title = "이번주 학습 계획";
-            s.planners = [lastWeek, thisWeek];
+        if (!s.planners || !Array.isArray(s.planners) || s.planners.length === 0) {
+            s.planners = createEmptyPlanners();
+        } else if (s.planners.length === 1) {
+            let existing = s.planners[0];
+            existing.title = "지난주 학습 계획";
+            s.planners = [createSinglePlannerInstance("이번주 학습 계획"), existing];
+        } else if (s.planners.length === 2) {
+            // 이전 버전 구조(0번: 지난주, 1번: 이번주)였던 경우 호환 보정
+            if (s.planners[0].title === "지난주 학습 계획") {
+                let oldLastWeek = s.planners[0];
+                let oldThisWeek = s.planners[1];
+                let lastWeekData = (oldThisWeek.sat1 || oldThisWeek.mon || (oldThisWeek.dates && oldThisWeek.dates.sat1_m)) ? oldThisWeek : oldLastWeek;
+                lastWeekData.title = "지난주 학습 계획";
+                
+                let newThisWeek = createSinglePlannerInstance("이번주 학습 계획");
+                newThisWeek.sat1 = lastWeekData.sat2 || ""; // 토요일 overlap 보존
+                
+                s.planners = [newThisWeek, lastWeekData];
+            } else {
+                s.planners[0].title = "이번주 학습 계획";
+                s.planners[1].title = "지난주 학습 계획";
+            }
         }
+
+        // 이번주/지난주 메모란 공란 가공 보장
+        if(s.planners[0]) s.planners[0].top_info = s.planners[0].top_info || "";
+        if(s.planners[1]) s.planners[1].top_info = s.planners[1].top_info || "";
+
+        // 지난주 날짜를 기준으로 이번주 날짜 자동 업데이트
+        updateThisWeekDatesFromLastWeek(s, true);
     });
 }
 
@@ -725,7 +762,8 @@ function autoFillDatesByWeekIndex(weekIndex) {
     else if (day === 0) sat1.setDate(today.getDate() - 1);
     else sat1.setDate(today.getDate() + (6 - day));
     
-    if (weekIndex === 0) sat1.setDate(sat1.getDate() - 7);
+    // index 1이 지난주
+    if (weekIndex === 1) sat1.setDate(sat1.getDate() - 7);
     
     const order = ['sat1','sun','mon','tue','wed','thu','fri','sat2'];
     order.forEach((name, i) => {
@@ -737,7 +775,8 @@ function autoFillDatesByWeekIndex(weekIndex) {
 }
 
 function showPlanner(id) {
-    currentPlannerStudentId=id; currentWeekIndex=1;
+    currentPlannerStudentId = id; 
+    currentWeekIndex = 0; // 이번주(메인)로 기본 설정
     document.getElementById("list-page").classList.add("hidden"); document.getElementById("student-subjects-page").classList.add("hidden");
     document.getElementById("planner-page").classList.remove("hidden");
     const s = students.find(x=>x.id===id); document.getElementById("planner-student-name").innerText = s.name;
@@ -765,23 +804,33 @@ function renderPlannerWeek() {
     const tabs = document.querySelectorAll(".tab-btn"); tabs.forEach((t, i) => t.classList.toggle("active", i===currentWeekIndex));
     document.getElementById("plan-title").value = p.title;
     
-    document.getElementById("planner-top-info-box").innerText = p.top_info || generateStudentProgressText(s);
+    // 🎯 메모란 공란 유지
+    document.getElementById("planner-top-info-box").innerText = p.top_info || "";
 
     const days = ["sat1","sun","mon","tue","wed","thu","fri","sat2","comment"];
     days.forEach(d => document.getElementById(`plan-${d}`).innerHTML = p[d] || "");
     const dZone = document.getElementById("planner-dday-zone"); const dText = calculateDDay(s.exam_date);
     dZone.innerHTML = dText ? `<span class="dday-badge">${s.exam_name||'시험'}: ${dText}</span>` : "";
+    
     const dates = p.dates || {};
     days.filter(d=>d!=='comment').forEach(d => {
         document.getElementById(`date-${d}-m`).value = dates[`${d}_m`] || ""; document.getElementById(`date-${d}-d`).value = dates[`${d}_d`] || "";
     });
     
     if(!dates.sat1_m && systemMode === 'teacher') {
-        autoFillDatesByWeekIndex(currentWeekIndex);
+        if (currentWeekIndex === 0 && s.planners[1] && s.planners[1].dates && s.planners[1].dates.sat1_m) {
+            updateThisWeekDatesFromLastWeek(s, true);
+            days.filter(d=>d!=='comment').forEach(d => {
+                document.getElementById(`date-${d}-m`).value = p.dates[`${d}_m`] || "";
+                document.getElementById(`date-${d}-d`).value = p.dates[`${d}_d`] || "";
+            });
+        } else {
+            autoFillDatesByWeekIndex(currentWeekIndex);
+        }
     }
 }
 
-// 🎯 [요청 반영 2] 이번주 수강 내역을 지난주로 이동 (공란화 & 토요일 overlap 보존)
+// 이번주 수강내역을 지난주로 이동 (이월)
 function shiftThisWeekToLastWeek() {
     if(systemMode === 'student') return;
     
@@ -789,40 +838,42 @@ function shiftThisWeekToLastWeek() {
         return;
     }
 
-    // 1. 현재 화면의 편집 데이터 저장
     saveCurrentPlannerLocalStorage();
 
     const s = students.find(x => x.id === currentPlannerStudentId);
     if (!s) return;
 
-    // 현재 '이번주' 데이터 복사
-    const thisWeekData = JSON.parse(JSON.stringify(s.planners[1]));
-
-    // 2. 지난주(planners[0]) 데이터를 기존 이번주 데이터로 덮어쓰기
-    s.planners[0] = {
-        ...thisWeekData,
+    // 1. 현재 이번주(0번) -> 지난주(1번)로 복사
+    const currentThisWeek = JSON.parse(JSON.stringify(s.planners[0]));
+    s.planners[1] = {
+        ...currentThisWeek,
         title: "지난주 학습 계획"
     };
 
-    // 3. 새로운 이번주(planners[1]) 객체 생성 (기본 공란)
+    // 2. 새 이번주(0번) 객체 생성 (상단 메모 공란 유지)
     const newThisWeek = createSinglePlannerInstance("이번주 학습 계획");
+    newThisWeek.top_info = ""; 
 
-    // 4. 🔥 토요일 Overlap 보존 Logic:
-    // 기존 이번주의 끝 토요일(sat2) 데이터와 날짜를 새로운 이번주의 시작 토요일(sat1)로 이월
-    newThisWeek.sat1 = thisWeekData.sat2 || "";
-    if (thisWeekData.dates) {
-        newThisWeek.dates.sat1_m = thisWeekData.dates.sat2_m || "";
-        newThisWeek.dates.sat1_d = thisWeekData.dates.sat2_d || "";
-    }
+    // 3. 토요일 Overlap 보존 (지난주 sat2 -> 새 이번주 sat1)
+    newThisWeek.sat1 = currentThisWeek.sat2 || "";
 
-    // 초기화된 계획표 적용
-    s.planners[1] = newThisWeek;
+    // 4. 지난주 날짜 +7일 후 새 이번주 날짜 설정
+    const dayKeys = ['sat1','sun','mon','tue','wed','thu','fri','sat2'];
+    dayKeys.forEach(day => {
+        const lastM = s.planners[1].dates ? s.planners[1].dates[`${day}_m`] : "";
+        const lastD = s.planners[1].dates ? s.planners[1].dates[`${day}_d`] : "";
+        if (lastM && lastD) {
+            const nextDate = addDaysToDate(lastM, lastD, 7);
+            newThisWeek.dates[`${day}_m`] = nextDate.m;
+            newThisWeek.dates[`${day}_d`] = nextDate.d;
+        }
+    });
 
-    // 5. 로컬스토리지 및 클라우드 즉시 반영
+    s.planners[0] = newThisWeek;
+
     syncStorage();
 
-    // 6. 뷰 갱신
-    currentWeekIndex = 1; // 이번주 탭 유지
+    currentWeekIndex = 0; // 이번주 탭 유지
     renderPlannerWeek();
 
     alert("성공적으로 '이번주' 수강내역이 '지난주'로 이동되었으며, 이번주 스케줄표가 새롭게 정돈되었습니다!");
@@ -839,6 +890,12 @@ function saveCurrentPlannerLocalStorage() {
     days.filter(d=>d!=='comment').forEach(d => {
         p.dates[`${d}_m`] = document.getElementById(`date-${d}-m`).value; p.dates[`${d}_d`] = document.getElementById(`date-${d}-d`).value;
     });
+
+    // 선생님께서 '지난주(1번)' 날짜를 입력/수정하면 '이번주(0번)' 날짜도 즉시 +7일 연동 계산
+    if (currentWeekIndex === 1) {
+        updateThisWeekDatesFromLastWeek(s, true);
+    }
+
     localStorage.setItem(`academy_data_user_${currentTeacherPassword}_sub_${currentActiveSubject}`, JSON.stringify(students));
 }
 
@@ -877,8 +934,7 @@ async function searchStudentAccess() {
                     allStds.forEach(s => {
                         if (!s.planners || s.planners.length !== 2) {
                             let old = s.planners || [];
-                            s.planners = [old[0] || createSinglePlannerInstance("지난주 학습 계획"), old[1] || createSinglePlannerInstance("이번주 학습 계획")];
-                            s.planners[0].title = "지난주 학습 계획"; s.planners[1].title = "이번주 학습 계획";
+                            s.planners = [old[0] || createSinglePlannerInstance("이번주 학습 계획"), old[1] || createSinglePlannerInstance("지난주 학습 계획")];
                         }
                     });
                     
