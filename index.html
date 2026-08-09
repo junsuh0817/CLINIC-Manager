@@ -219,6 +219,7 @@
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <button onclick="showDetail('new')" class="btn-outline" style="font-weight:bold;">+ 새 학생 추가</button>
+                <button onclick="exportCurrentClassBackup()" class="btn-outline" title="연도 초기화 전 보관용 파일을 내려받습니다.">💾 이 반 백업</button>
             </div>
             <div class="list-toolbar">
                 <input type="search" id="student-search-filter" placeholder="이름, 학교, 과목 검색" oninput="renderTable()">
@@ -343,7 +344,7 @@ let currentWeekIndex = 0; // 0: 이번주 (메인), 1: 지난주
 let globalCloudDatabase = []; let autoSaveTimer = null; 
 
 let isCloudSaving = false; let syncPending = false;
-let tempSubjects = [];
+let tempSubjects = []; let tempConsultations = [];
 
 window.onload = function() { initTheme(); };
 
@@ -581,16 +582,56 @@ function getSubjectNamesOnly(s) {
     return names.length > 0 ? names.join(", ") : "-";
 }
 
+function getTodayLocalDateString() {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
+
+function getLatestConsultationDate(student) {
+    const consultations = Array.isArray(student.consultations) ? student.consultations : [];
+    return consultations.reduce((latest, consultation) => consultation.date > latest ? consultation.date : latest, "");
+}
+
+function renderManagementSummary() {
+    const summary = document.getElementById("management-summary");
+    if (!summary) return;
+    const plannedCount = students.filter(student => student.planners && student.planners[0]).length;
+    const consultationCount = students.reduce((total, student) => total + (Array.isArray(student.consultations) ? student.consultations.length : 0), 0);
+    summary.innerHTML = `
+        <div class="summary-card"><span class="summary-label">등록 학생</span><span class="summary-value">${students.length}명</span></div>
+        <div class="summary-card"><span class="summary-label">이번주 계획</span><span class="summary-value">${plannedCount}명</span></div>
+        <div class="summary-card"><span class="summary-label">상담 기록</span><span class="summary-value">${consultationCount}건</span></div>
+    `;
+}
+
 function renderTable() {
     const tbody = document.getElementById("student-list-body");
-    tbody.innerHTML = students.length ? "" : `<tr><td colspan="5" style="padding:30px; color:#86868b;">학생을 추가해주세요.</td></tr>`;
-    students.forEach(s => {
+    const filterInput = document.getElementById("student-search-filter");
+    const sortSelect = document.getElementById("student-sort-select");
+    const query = (filterInput ? filterInput.value : "").trim().toLowerCase();
+    const sortMode = sortSelect ? sortSelect.value : "dday";
+    const visibleStudents = students.filter(student => {
+        if (!query) return true;
+        return [student.name, student.school, getSubjectNamesOnly(student)].some(value => String(value || "").toLowerCase().includes(query));
+    }).sort((a, b) => {
+        if (sortMode === "name") return String(a.name || "").localeCompare(String(b.name || ""), "ko");
+        if (sortMode === "recentConsultation") return getLatestConsultationDate(b).localeCompare(getLatestConsultationDate(a));
+        const aDate = a.exam_date || "9999-12-31";
+        const bDate = b.exam_date || "9999-12-31";
+        return aDate.localeCompare(bDate);
+    });
+
+    tbody.innerHTML = visibleStudents.length ? "" : `<tr><td colspan="5" style="padding:30px; color:#86868b;">${students.length ? "검색 결과가 없습니다." : "학생을 추가해주세요."}</td></tr>`;
+    visibleStudents.forEach(s => {
         const tr = document.createElement("tr");
         const subjectNamesList = getSubjectNamesOnly(s);
         const dday = calculateDDay(s.exam_date);
-        tr.innerHTML = `<td><strong>${s.name}</strong></td><td>${s.age ? s.age+'세 / ' : ''}${s.school||'-'}</td><td>${dday?`<span class="dday-badge">${dday}</span>`:'-'}</td><td style="text-align:center; font-size:13px; font-weight:600; color:#3b5bdb;">${subjectNamesList}</td><td><button onclick="showDetail(${s.id})">수정</button><button onclick="showPlanner(${s.id})" class="btn-outline">계획표</button><button onclick="deleteStudent(${s.id})" class="btn-red">삭제</button></td>`;
+        const studentName = escapeHtml(s.name || "-");
+        const studentInfo = `${s.age ? `${escapeHtml(s.age)}세 / ` : ""}${escapeHtml(s.school || "-")}`;
+        tr.innerHTML = `<td><strong>${studentName}</strong></td><td>${studentInfo}</td><td>${dday?`<span class="dday-badge">${dday}</span>`:'-'}</td><td style="text-align:center; font-size:13px; font-weight:600; color:#3b5bdb;">${escapeHtml(subjectNamesList)}</td><td><button onclick="showDetail(${s.id})">수정</button><button onclick="showPlanner(${s.id})" class="btn-outline">계획표</button><button onclick="deleteStudent(${s.id})" class="btn-red">삭제</button></td>`;
         tbody.appendChild(tr);
     });
+    renderManagementSummary();
 }
 
 function calculateDDay(dateString) {
@@ -600,6 +641,27 @@ function calculateDDay(dateString) {
 }
 
 function deleteStudent(id) { if(confirm("정말 삭제하시겠습니까?")){ students = students.filter(s=>s.id!==id); syncStorage(); renderTable(); }}
+
+function exportCurrentClassBackup() {
+    if (!currentActiveSubject) return alert("백업할 반을 먼저 선택하세요.");
+    const backup = {
+        formatVersion: 1,
+        exportedAt: new Date().toISOString(),
+        subject: currentActiveSubject,
+        profile: teacherProfileMap[currentActiveSubject] || {},
+        students: students
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const safeSubject = currentActiveSubject.replace(/[^0-9A-Za-z가-힣_-]/g, "_");
+    link.href = url;
+    link.download = `CLINIC_${safeSubject}_${getTodayLocalDateString()}_backup.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
 
 function renderSubjectCardsUI() {
     const container = document.getElementById("dynamic-subjects-container");
@@ -658,6 +720,46 @@ function removeLectureItem(sIdx, lIdx) {
     renderSubjectCardsUI();
 }
 
+function escapeHtml(value) {
+    return String(value || "").replace(/[&<>'"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
+}
+
+function renderConsultationHistory() {
+    const history = document.getElementById("consultation-history");
+    if (!history) return;
+    if (!tempConsultations.length) {
+        history.innerHTML = '<p style="margin:0; color:#86868b; font-size:12px;">아직 상담 기록이 없습니다.</p>';
+        return;
+    }
+    history.innerHTML = tempConsultations
+        .slice()
+        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+        .map(consultation => `
+            <div class="consultation-item">
+                <div class="consultation-meta"><span>${escapeHtml(consultation.date || "날짜 미입력")}</span><button type="button" class="btn-red btn-sm" onclick="removeConsultation(decodeURIComponent('${encodeURIComponent(consultation.id)}'))">삭제</button></div>
+                <div class="consultation-content">${escapeHtml(consultation.content)}</div>
+                ${consultation.nextAction ? `<div class="consultation-next">다음 확인: ${escapeHtml(consultation.nextAction)}</div>` : ""}
+            </div>
+        `).join("");
+}
+
+function addConsultation() {
+    const date = document.getElementById("consultation-date").value || getTodayLocalDateString();
+    const content = document.getElementById("consultation-content").value.trim();
+    const nextAction = document.getElementById("consultation-next-action").value.trim();
+    if (!content) return alert("상담 내용을 입력해 주세요.");
+    tempConsultations.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, date, content, nextAction });
+    document.getElementById("consultation-date").value = getTodayLocalDateString();
+    document.getElementById("consultation-content").value = "";
+    document.getElementById("consultation-next-action").value = "";
+    renderConsultationHistory();
+}
+
+function removeConsultation(id) {
+    tempConsultations = tempConsultations.filter(consultation => consultation.id !== id);
+    renderConsultationHistory();
+}
+
 function showDetail(id) {
     document.getElementById("list-page").classList.add("hidden"); document.getElementById("detail-page").classList.remove("hidden");
     const btn = document.getElementById("student-save-submit-btn"); if(btn) btn.disabled = false;
@@ -666,6 +768,8 @@ function showDetail(id) {
         currentEditId = null; 
         document.querySelectorAll("#detail-page input, #detail-page textarea").forEach(i=>i.value="");
         tempSubjects = [{ name: "수학Ⅰ", lectures: [{ name: "", progress: "" }] }];
+        tempConsultations = [];
+        document.getElementById("consultation-date").value = getTodayLocalDateString();
     } else {
         const s = students.find(x=>x.id===id); currentEditId=id;
         document.getElementById("detail-name").value=s.name || ""; 
@@ -674,6 +778,7 @@ function showDetail(id) {
         document.getElementById("detail-exam-name").value=s.exam_name||""; 
         document.getElementById("detail-exam-date").value=s.exam_date||"";
         document.getElementById("detail-memo").value=s.memo || "";
+        tempConsultations = JSON.parse(JSON.stringify(Array.isArray(s.consultations) ? s.consultations : []));
         
         if (s.subjects && s.subjects.length > 0) {
             tempSubjects = JSON.parse(JSON.stringify(s.subjects));
@@ -682,6 +787,7 @@ function showDetail(id) {
         }
     }
     renderSubjectCardsUI();
+    renderConsultationHistory();
 }
 
 function saveStudent() {
@@ -697,7 +803,8 @@ function saveStudent() {
         exam_name: document.getElementById("detail-exam-name").value, 
         exam_date: document.getElementById("detail-exam-date").value,
         memo: document.getElementById("detail-memo").value,
-        subjects: tempSubjects 
+        subjects: tempSubjects,
+        consultations: tempConsultations
     };
 
     if(currentEditId) { const i = students.findIndex(x=>x.id===currentEditId); students[i] = {...students[i], ...data}; }
@@ -880,8 +987,15 @@ function renderPlannerWeek() {
 
     const days = ["sat1","sun","mon","tue","wed","thu","fri","sat2","comment"];
     days.forEach(d => document.getElementById(`plan-${d}`).innerHTML = p[d] || "");
-    const dZone = document.getElementById("planner-dday-zone"); const dText = calculateDDay(s.exam_date);
-    dZone.innerHTML = dText ? `<span class="dday-badge">${s.exam_name||'시험'}: ${dText}</span>` : "";
+    const dZone = document.getElementById("planner-dday-zone");
+    if (systemMode === "student") {
+        document.getElementById("planner-student-name").innerText = "주간 학습 계획";
+        dZone.innerHTML = "";
+    } else {
+        document.getElementById("planner-student-name").innerText = s.name;
+        const dText = calculateDDay(s.exam_date);
+        dZone.innerHTML = dText ? `<span class="dday-badge">${s.exam_name||'시험'}: ${dText}</span>` : "";
+    }
     
     const dates = p.dates || {};
     days.filter(d=>d!=='comment').forEach(d => {
