@@ -235,7 +235,7 @@
             
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <button onclick="showDetail('new')" class="btn-outline" style="font-weight:bold;">+ 새 학생 추가</button>
-                <div><button onclick="openCourseCatalog()" class="btn-outline">📚 강좌 카탈로그</button><button onclick="exportCurrentClassBackup()" class="btn-outline" title="연도 초기화 전 보관용 파일을 내려받습니다.">💾 이 반 백업</button></div>
+                <div><button onclick="openCourseCatalog()" class="btn-outline" title="학생 과목 선택에 사용할 목차와 시간을 관리합니다.">📚 목차 데이터 관리</button><button onclick="exportCurrentClassBackup()" class="btn-outline" title="연도 초기화 전 보관용 파일을 내려받습니다.">💾 이 반 백업</button></div>
             </div>
             <div class="list-toolbar">
                 <input type="search" id="student-search-filter" placeholder="이름, 학교, 과목 검색" oninput="renderTable()">
@@ -818,15 +818,16 @@ function renderSubjectCardsUI() {
     tempSubjects.forEach((sub, sIdx) => {
         const card = document.createElement("div");
         card.className = "subject-card";
+        const availableCourses = catalog.filter(course => course.subject === normalizeCatalogSubject(sub.name));
+        const selectedCourseId = sub.courseId || (sub.lectures || []).find(lecture => lecture.courseId)?.courseId || "";
+        const selectedCourse = availableCourses.find(course => course.id === selectedCourseId);
+        const courseOptions = [`<option value="">수강 강좌 선택</option>`, ...availableCourses.map(course => `<option value="${escapeHtml(course.id)}" ${course.id === selectedCourseId ? "selected" : ""}>${escapeHtml(course.teacher)} ${escapeHtml(course.title)}</option>`)].join("");
         
         let lecturesHTML = "";
         sub.lectures.forEach((lec, lIdx) => {
-            const availableCourses = catalog.filter(course => course.subject === normalizeCatalogSubject(sub.name));
-            const selectedCourse = availableCourses.find(course => course.id === lec.courseId);
-            const courseOptions = [`<option value="">강좌 선택 (직접 입력 가능)</option>`, ...availableCourses.map(course => `<option value="${escapeHtml(course.id)}" ${course.id === lec.courseId ? "selected" : ""}>${escapeHtml(course.teacher)} ${escapeHtml(course.title)}</option>`)].join("");
             const lessonOptions = selectedCourse && selectedCourse.lessons.length
-                ? [`<option value="">강의 선택</option>`, ...selectedCourse.lessons.map(lesson => `<option value="${escapeHtml(lesson.id)}" ${lesson.id === lec.lessonId ? "selected" : ""}>${escapeHtml(lesson.title)} (${toMinutes(lesson.duration)}분)</option>`)].join("")
-                : '<option value="">등록된 강의 없음</option>';
+                ? [`<option value="">목차에서 강의 선택</option>`, ...selectedCourse.lessons.map(lesson => `<option value="${escapeHtml(lesson.id)}" ${lesson.id === lec.lessonId ? "selected" : ""}>${escapeHtml(lesson.title)} (${toMinutes(lesson.duration)}분)</option>`)].join("")
+                : '<option value="">강좌 목차를 먼저 등록하세요</option>';
             lecturesHTML += `
                 <div class="lecture-row">
                     <input type="text" placeholder="강의/교재명 (예: 시발점)" value="${lec.name || ''}" oninput="tempSubjects[${sIdx}].lectures[${lIdx}].name = this.value" style="flex: 1;">
@@ -835,19 +836,21 @@ function renderSubjectCardsUI() {
                     ${sub.lectures.length > 1 ? `<button onclick="removeLectureItem(${sIdx}, ${lIdx})" class="btn-red btn-sm" style="padding: 6px 10px;">✕</button>` : ''}
                 </div>
                 <div class="lecture-row" style="padding-left:4px;">
-                    <select onchange="selectLectureCatalogCourse(${sIdx}, ${lIdx}, this.value)" style="flex:1; margin:0;">${courseOptions}</select>
-                    <select onchange="selectLectureCatalogLesson(${sIdx}, ${lIdx}, this.value)" style="flex:1; margin:0;" ${selectedCourse && selectedCourse.lessons.length ? "" : "disabled"}>${lessonOptions}</select>
+                    <select onchange="selectSubjectCatalogLesson(${sIdx}, ${lIdx}, this.value)" style="flex:1; margin:0;" ${selectedCourse && selectedCourse.lessons.length ? "" : "disabled"}>${lessonOptions}</select>
                 </div>
             `;
         });
 
         card.innerHTML = `
             <div class="subject-card-header">
-                <input type="text" placeholder="과목명 (예: 수1, 수2, 독서)" value="${sub.name || ''}" oninput="tempSubjects[${sIdx}].name = this.value" style="font-weight: bold; font-size: 14px; width: 60%; margin: 0;">
+                <div style="display:flex; gap:8px; flex:1;">
+                    <input type="text" placeholder="과목명 (예: 수1, 수2, 확통)" value="${sub.name || ''}" onchange="tempSubjects[${sIdx}].name = this.value; renderSubjectCardsUI();" style="font-weight: bold; font-size: 14px; flex: 1; margin: 0;">
+                    <select onchange="selectSubjectCatalogCourse(${sIdx}, this.value)" style="flex:1.4; margin:0;">${courseOptions}</select>
+                </div>
                 ${tempSubjects.length > 1 ? `<button onclick="removeSubjectCard(${sIdx})" class="btn-red btn-sm">과목 삭제</button>` : ''}
             </div>
             <div style="margin-top: 10px;">
-                <label style="font-size: 11px; color: #86868b; font-weight: bold;">강의 및 교재 진도 목록 (강의 시간은 분 단위, 최대 10개)</label>
+                <label style="font-size: 11px; color: #86868b; font-weight: bold;">${selectedCourse ? `${escapeHtml(selectedCourse.teacher)} ${escapeHtml(selectedCourse.title)} 목차 연동` : "강의 및 교재 진도 목록"} · 강의 시간은 분 단위</label>
                 ${lecturesHTML}
             </div>
             <button onclick="addLectureItem(${sIdx})" class="btn-outline btn-sm" style="margin-top: 8px; width: 100%; border-style: dashed;" ${sub.lectures.length >= 10 ? 'disabled' : ''}>+ 강의/교재 추가 (${sub.lectures.length}/10)</button>
@@ -879,16 +882,20 @@ function removeLectureItem(sIdx, lIdx) {
     renderSubjectCardsUI();
 }
 
-function selectLectureCatalogCourse(subjectIndex, lectureIndex, courseId) {
-    const lecture = tempSubjects[subjectIndex].lectures[lectureIndex];
-    lecture.courseId = courseId;
-    lecture.lessonId = "";
+function selectSubjectCatalogCourse(subjectIndex, courseId) {
+    const subject = tempSubjects[subjectIndex];
+    subject.courseId = courseId;
+    subject.lectures.forEach(lecture => {
+        lecture.lessonId = "";
+        delete lecture.courseId;
+    });
     renderSubjectCardsUI();
 }
 
-function selectLectureCatalogLesson(subjectIndex, lectureIndex, lessonId) {
+function selectSubjectCatalogLesson(subjectIndex, lectureIndex, lessonId) {
     const lecture = tempSubjects[subjectIndex].lectures[lectureIndex];
-    const course = getCatalogCourse(lecture.courseId);
+    const subject = tempSubjects[subjectIndex];
+    const course = getCatalogCourse(subject.courseId || lecture.courseId);
     const lesson = course && (course.lessons || []).find(item => item.id === lessonId);
     lecture.lessonId = lessonId;
     if (lesson) {
