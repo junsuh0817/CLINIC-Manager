@@ -61,6 +61,21 @@
         .consultation-meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #86868b; font-size: 11px; font-weight: 700; margin-bottom: 7px; }
         .consultation-content { white-space: pre-wrap; word-break: break-word; font-size: 13px; }
         .consultation-next { color: #3b5bdb; margin-top: 7px; font-size: 12px; font-weight: 600; }
+        .workload-panel { margin-bottom: 20px; padding: 18px; border: 1px solid var(--border-color); border-radius: 12px; background: #f8f9fa; }
+        .workload-panel h4 { margin-top: 0; }
+        .workload-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0; }
+        .workload-stat { padding: 10px; border-radius: 8px; background: #fff; border: 1px solid var(--border-color); }
+        .workload-stat span { display: block; color: #86868b; font-size: 10px; font-weight: 700; }
+        .workload-stat strong { font-size: 17px; }
+        .workload-status { font-size: 12px; font-weight: 700; margin: 10px 0 0; }
+        .workload-status.ok { color: #16803c; }
+        .workload-status.warn { color: #b7791f; }
+        .workload-status.danger { color: #d92d20; }
+        .workload-table { margin-top: 8px; font-size: 12px; }
+        .workload-table input { margin: 0; padding: 5px 6px; min-width: 55px; }
+        .workload-table td, .workload-table th { padding: 7px; }
+        .workload-table .overload { color: #d92d20; font-weight: 700; }
+        .workload-table .caution { color: #b7791f; font-weight: 700; }
         .subject-select-btn { display: block; width: 100%; padding: 15px; margin-bottom: 10px; text-align: left; background: #f5f5f7; border: 1px solid var(--border-color); border-radius: 10px; font-size: 16px; font-weight: 600; color: var(--text-color); cursor: pointer; transition: all 0.3s; }
         .subject-select-btn:hover { border-color: var(--accent-color); background: #edf2ff; }
         .tab-btn { background-color: transparent; color: #86868b; border: none; border-radius: 15px; padding: 6px 16px; font-weight: 600; cursor: pointer; }
@@ -110,6 +125,7 @@
             .management-summary { grid-template-columns: 1fr; }
             .list-toolbar { flex-direction: column; align-items: stretch; }
             .list-toolbar select { width: 100%; }
+            .workload-summary { grid-template-columns: repeat(2, 1fr); }
         }
         
         .loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.7); display: flex; justify-content: center; align-items: center; z-index: 100; font-weight: 600; border-radius: var(--border-radius); font-size: 16px; color: var(--accent-color); }
@@ -294,6 +310,8 @@
                     </div>
                 </div>
             </div>
+
+            <section id="workload-panel" class="workload-panel no-print"></section>
 
             <div id="print-area">
                 <div class="planner-header">
@@ -677,6 +695,7 @@ function renderSubjectCardsUI() {
                 <div class="lecture-row">
                     <input type="text" placeholder="강의/교재명 (예: 시발점)" value="${lec.name || ''}" oninput="tempSubjects[${sIdx}].lectures[${lIdx}].name = this.value" style="flex: 1;">
                     <input type="text" placeholder="진도/상태 (예: 3단원 p.45)" value="${lec.progress || ''}" oninput="tempSubjects[${sIdx}].lectures[${lIdx}].progress = this.value" style="flex: 1.5;">
+                    <input type="number" min="0" step="5" placeholder="분" value="${lec.duration || ''}" oninput="tempSubjects[${sIdx}].lectures[${lIdx}].duration = this.value" title="강의 1개당 재생 시간(분)" style="flex: 0.5;">
                     ${sub.lectures.length > 1 ? `<button onclick="removeLectureItem(${sIdx}, ${lIdx})" class="btn-red btn-sm" style="padding: 6px 10px;">✕</button>` : ''}
                 </div>
             `;
@@ -688,7 +707,7 @@ function renderSubjectCardsUI() {
                 ${tempSubjects.length > 1 ? `<button onclick="removeSubjectCard(${sIdx})" class="btn-red btn-sm">과목 삭제</button>` : ''}
             </div>
             <div style="margin-top: 10px;">
-                <label style="font-size: 11px; color: #86868b; font-weight: bold;">강의 및 교재 진도 목록 (최대 10개)</label>
+                <label style="font-size: 11px; color: #86868b; font-weight: bold;">강의 및 교재 진도 목록 (강의 시간은 분 단위, 최대 10개)</label>
                 ${lecturesHTML}
             </div>
             <button onclick="addLectureItem(${sIdx})" class="btn-outline btn-sm" style="margin-top: 8px; width: 100%; border-style: dashed;" ${sub.lectures.length >= 10 ? 'disabled' : ''}>+ 강의/교재 추가 (${sub.lectures.length}/10)</button>
@@ -814,6 +833,182 @@ function saveStudent() {
 }
 
 const PLANNER_DAY_KEYS = ['sat1','sun','mon','tue','wed','thu','fri','sat2'];
+const WORKLOAD_DAY_KEYS = ['sat1','sun','mon','tue','wed','thu','fri'];
+const WORKLOAD_DAY_LABELS = { sat1: '토', sun: '일', mon: '월', tue: '화', wed: '수', thu: '목', fri: '금' };
+
+function toMinutes(value) {
+    return Math.max(0, Math.round(Number(value) || 0));
+}
+
+function getWorkloadAssignments(student) {
+    return (student.subjects || []).flatMap((subject, subjectIndex) =>
+        (subject.lectures || []).filter(lecture => lecture.name || lecture.duration).map((lecture, lectureIndex) => ({
+            id: `${subjectIndex}-${lectureIndex}`,
+            subject: subject.name || '과목',
+            name: lecture.name || '강의',
+            duration: toMinutes(lecture.duration),
+            count: 0
+        }))
+    );
+}
+
+function createWorkloadPlan(student) {
+    return {
+        multiplier: 1.3,
+        selfStudyMinutes: 0,
+        assignments: getWorkloadAssignments(student),
+        availability: Object.fromEntries(WORKLOAD_DAY_KEYS.map(day => [day, 0])),
+        planned: Object.fromEntries(WORKLOAD_DAY_KEYS.map(day => [day, 0]))
+    };
+}
+
+function createNextWeekWorkload(student, previousPlan) {
+    const workload = createWorkloadPlan(student);
+    const previousWorkload = previousPlan && previousPlan.workload;
+    if (previousWorkload) {
+        workload.multiplier = Number(previousWorkload.multiplier) > 0 ? Number(previousWorkload.multiplier) : workload.multiplier;
+        workload.availability = { ...workload.availability, ...(previousWorkload.availability || {}) };
+    }
+    return workload;
+}
+
+function ensurePlannerWorkload(student, planner) {
+    const defaults = createWorkloadPlan(student);
+    const workload = planner.workload || defaults;
+    workload.multiplier = Number(workload.multiplier) > 0 ? Number(workload.multiplier) : 1.3;
+    workload.selfStudyMinutes = toMinutes(workload.selfStudyMinutes);
+    workload.availability = { ...defaults.availability, ...(workload.availability || {}) };
+    workload.planned = { ...defaults.planned, ...(workload.planned || {}) };
+
+    const existingAssignments = new Map((workload.assignments || []).map(assignment => [assignment.id, assignment]));
+    workload.assignments = defaults.assignments.map(defaultAssignment => {
+        const existing = existingAssignments.get(defaultAssignment.id);
+        return existing ? {
+            ...defaultAssignment,
+            duration: toMinutes(existing.duration || defaultAssignment.duration),
+            count: toMinutes(existing.count)
+        } : defaultAssignment;
+    });
+    planner.workload = workload;
+    return workload;
+}
+
+function distributeWorkload(totalMinutes, availability) {
+    const availableTotal = WORKLOAD_DAY_KEYS.reduce((total, day) => total + toMinutes(availability[day]), 0);
+    const distribution = Object.fromEntries(WORKLOAD_DAY_KEYS.map(day => [day, 0]));
+    if (!availableTotal || !totalMinutes) return distribution;
+
+    let distributed = 0;
+    const remainders = WORKLOAD_DAY_KEYS.map(day => {
+        const raw = totalMinutes * toMinutes(availability[day]) / availableTotal;
+        const roundedDown = Math.floor(raw);
+        distribution[day] = roundedDown;
+        distributed += roundedDown;
+        return { day, remainder: raw - roundedDown };
+    }).sort((a, b) => b.remainder - a.remainder);
+
+    for (let index = 0; distributed < totalMinutes; index = (index + 1) % remainders.length) {
+        distribution[remainders[index].day] += 1;
+        distributed += 1;
+    }
+    return distribution;
+}
+
+function calculateWorkload(workload) {
+    const lectureMinutes = workload.assignments.reduce((total, assignment) => total + toMinutes(assignment.duration) * toMinutes(assignment.count), 0);
+    const requiredMinutes = Math.round(lectureMinutes * Number(workload.multiplier || 1.3)) + toMinutes(workload.selfStudyMinutes);
+    const availableMinutes = WORKLOAD_DAY_KEYS.reduce((total, day) => total + toMinutes(workload.availability[day]), 0);
+    const plannedMinutes = WORKLOAD_DAY_KEYS.reduce((total, day) => total + toMinutes(workload.planned[day]), 0);
+    const recommended = distributeWorkload(requiredMinutes, workload.availability);
+    const dayStates = Object.fromEntries(WORKLOAD_DAY_KEYS.map(day => {
+        const available = toMinutes(workload.availability[day]);
+        const planned = toMinutes(workload.planned[day]);
+        const ratio = available ? planned / available : (planned ? Infinity : 0);
+        const status = ratio > 1.15 ? '과부하' : ratio > 1 ? '조정 권장' : '적정';
+        return [day, { available, planned, recommended: recommended[day], status }];
+    }));
+    return { lectureMinutes, requiredMinutes, availableMinutes, plannedMinutes, recommended, dayStates };
+}
+
+function getWorkloadStatus(result) {
+    const overloadedDays = Object.values(result.dayStates).filter(day => day.status === '과부하').length;
+    const cautionDays = Object.values(result.dayStates).filter(day => day.status === '조정 권장').length;
+    if (!result.requiredMinutes) return { level: 'warn', message: '이번 주 강의 수 또는 자습 시간을 입력해 주세요.' };
+    if (result.requiredMinutes > result.availableMinutes) return { level: 'danger', message: `주간 가용시간이 ${result.requiredMinutes - result.availableMinutes}분 부족합니다.` };
+    if (overloadedDays) return { level: 'danger', message: `${overloadedDays}일이 가용시간의 115%를 초과합니다.` };
+    if (cautionDays) return { level: 'warn', message: `${cautionDays}일은 가용시간을 조금 초과합니다. 조정을 권장합니다.` };
+    if (result.plannedMinutes < result.requiredMinutes) return { level: 'warn', message: `${result.requiredMinutes - result.plannedMinutes}분을 아직 요일별로 배정하지 않았습니다.` };
+    if (result.plannedMinutes > result.requiredMinutes) return { level: 'warn', message: `필요시간보다 ${result.plannedMinutes - result.requiredMinutes}분 더 배정되었습니다.` };
+    return { level: 'ok', message: '가용시간 안에서 필요한 학습량이 균형 있게 배정되었습니다.' };
+}
+
+function saveWorkloadFromPlanner() {
+    if (!currentPlannerStudentId || systemMode === 'student') return null;
+    const student = students.find(item => item.id === currentPlannerStudentId);
+    const planner = student && student.planners[currentWeekIndex];
+    if (!student || !planner) return null;
+    const workload = ensurePlannerWorkload(student, planner);
+    const multiplier = document.getElementById('workload-multiplier');
+    const selfStudyMinutes = document.getElementById('workload-self-study');
+    if (!multiplier || !selfStudyMinutes) return workload;
+
+    workload.multiplier = Number(multiplier.value) > 0 ? Number(multiplier.value) : 1.3;
+    workload.selfStudyMinutes = toMinutes(selfStudyMinutes.value);
+    workload.assignments.forEach((assignment, index) => {
+        assignment.duration = toMinutes(document.getElementById(`workload-duration-${index}`).value);
+        assignment.count = toMinutes(document.getElementById(`workload-count-${index}`).value);
+    });
+    WORKLOAD_DAY_KEYS.forEach(day => {
+        workload.availability[day] = toMinutes(document.getElementById(`workload-availability-${day}`).value);
+        workload.planned[day] = toMinutes(document.getElementById(`workload-planned-${day}`).value);
+    });
+    return workload;
+}
+
+function renderWorkloadPanel(student, planner) {
+    const panel = document.getElementById('workload-panel');
+    if (!panel || systemMode === 'student') return;
+    const workload = ensurePlannerWorkload(student, planner);
+    const result = calculateWorkload(workload);
+    const status = getWorkloadStatus(result);
+    const assignmentRows = workload.assignments.length ? workload.assignments.map((assignment, index) => `
+        <tr><td>${escapeHtml(assignment.subject)}</td><td>${escapeHtml(assignment.name)}</td>
+        <td><input id="workload-duration-${index}" type="number" min="0" step="5" value="${assignment.duration}" onchange="recalculateWorkload()">분</td>
+        <td><input id="workload-count-${index}" type="number" min="0" step="1" value="${assignment.count}" onchange="recalculateWorkload()">개</td></tr>
+    `).join('') : '<tr><td colspan="4" style="color:#86868b;">학생 정보에서 강의/교재를 먼저 등록해 주세요.</td></tr>';
+    const dayRows = WORKLOAD_DAY_KEYS.map(day => {
+        const state = result.dayStates[day];
+        const className = state.status === '과부하' ? 'overload' : state.status === '조정 권장' ? 'caution' : '';
+        return `<tr><th>${WORKLOAD_DAY_LABELS[day]}요일</th><td><input id="workload-availability-${day}" type="number" min="0" step="10" value="${state.available}" onchange="recalculateWorkload()">분</td><td>${state.recommended}분</td><td><input id="workload-planned-${day}" type="number" min="0" step="10" value="${state.planned}" onchange="recalculateWorkload()">분</td><td class="${className}">${state.status}</td></tr>`;
+    }).join('');
+    panel.innerHTML = `
+        <h4>⏱️ 주간 학습량 검토</h4>
+        <p style="font-size:12px; color:#666; margin-top:-5px;">강의 시간 × 학습 배수에 자습 시간을 더해, 학생의 요일별 가용시간 안에 배정되었는지 확인합니다.</p>
+        <div class="flex-group"><div class="form-group"><label>학습 배수</label><input id="workload-multiplier" type="number" min="0.1" step="0.1" value="${workload.multiplier}" onchange="recalculateWorkload()"></div><div class="form-group"><label>강의 외 자습/숙제 (분)</label><input id="workload-self-study" type="number" min="0" step="10" value="${workload.selfStudyMinutes}" onchange="recalculateWorkload()"></div></div>
+        <table class="workload-table"><thead><tr><th>과목</th><th>강의/교재</th><th>강의 시간</th><th>이번 주</th></tr></thead><tbody>${assignmentRows}</tbody></table>
+        <div class="workload-summary"><div class="workload-stat"><span>강의 재생시간</span><strong>${result.lectureMinutes}분</strong></div><div class="workload-stat"><span>필요 학습시간</span><strong>${result.requiredMinutes}분</strong></div><div class="workload-stat"><span>주간 가용시간</span><strong>${result.availableMinutes}분</strong></div><div class="workload-stat"><span>실제 배정시간</span><strong>${result.plannedMinutes}분</strong></div></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;"><strong style="font-size:12px;">요일별 배정</strong><button type="button" class="btn-outline btn-sm" onclick="applyRecommendedWorkload()">권장 배정 적용</button></div>
+        <table class="workload-table"><thead><tr><th>요일</th><th>가용시간</th><th>권장 배정</th><th>실제 배정</th><th>상태</th></tr></thead><tbody>${dayRows}</tbody></table>
+        <p class="workload-status ${status.level}">${status.message}</p>
+    `;
+}
+
+function recalculateWorkload() {
+    const workload = saveWorkloadFromPlanner();
+    if (!workload) return;
+    const student = students.find(item => item.id === currentPlannerStudentId);
+    renderWorkloadPanel(student, student.planners[currentWeekIndex]);
+    triggerAutoSaveDebounce();
+}
+
+function applyRecommendedWorkload() {
+    const workload = saveWorkloadFromPlanner();
+    if (!workload) return;
+    workload.planned = calculateWorkload(workload).recommended;
+    const student = students.find(item => item.id === currentPlannerStudentId);
+    renderWorkloadPanel(student, student.planners[currentWeekIndex]);
+    triggerAutoSaveDebounce();
+}
 
 function startOfLocalDay(date) {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -948,6 +1143,7 @@ function rollOverPlansForCurrentWeek(referenceDate = new Date()) {
 
         const newThisWeekPlan = createSinglePlannerInstance("이번주 학습 계획", thisWeekStart);
         newThisWeekPlan.sat1 = lastWeekPlan.sat2 || ""; // 마지막 토요일 계획을 다음 주 첫 토요일에 유지
+        newThisWeekPlan.workload = createNextWeekWorkload(student, lastWeekPlan);
         student.planners = [newThisWeekPlan, lastWeekPlan];
         changed = true;
     });
@@ -967,12 +1163,14 @@ function showPlanner(id) {
         document.querySelectorAll(".editable-cell").forEach(el => el.setAttribute("contenteditable", "false"));
         document.querySelectorAll(".day-date-input").forEach(el => el.readOnly = true);
         document.getElementById("plan-status-dot").parentElement.classList.add("hidden");
+        document.getElementById("workload-panel").classList.add("hidden");
     } else {
         document.getElementById("plan-title").readOnly = false;
         document.getElementById("planner-back-list-btn").innerText = "◀ 목록으로"; document.getElementById("planner-back-list-btn").onclick = goToList;
         document.querySelectorAll(".editable-cell").forEach(el => el.setAttribute("contenteditable", "true"));
         document.querySelectorAll(".day-date-input").forEach(el => el.readOnly = true);
         document.getElementById("plan-status-dot").parentElement.classList.remove("hidden");
+        document.getElementById("workload-panel").classList.remove("hidden");
     }
     renderPlannerWeek();
 }
@@ -1001,7 +1199,7 @@ function renderPlannerWeek() {
     days.filter(d=>d!=='comment').forEach(d => {
         document.getElementById(`date-${d}-m`).value = dates[`${d}_m`] || ""; document.getElementById(`date-${d}-d`).value = dates[`${d}_d`] || "";
     });
-    
+    if (systemMode === 'teacher') renderWorkloadPanel(s, p);
 }
 
 function saveCurrentPlannerLocalStorage() {
@@ -1009,6 +1207,7 @@ function saveCurrentPlannerLocalStorage() {
     const s = students.find(x=>x.id===currentPlannerStudentId); const p = s.planners[currentWeekIndex];
     p.title = document.getElementById("plan-title").value;
     p.top_info = document.getElementById("planner-top-info-box").innerText;
+    saveWorkloadFromPlanner();
 
     const days = ["sat1","sun","mon","tue","wed","thu","fri","sat2","comment"];
     days.forEach(d => p[d] = document.getElementById(`plan-${d}`).innerHTML);
