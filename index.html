@@ -255,7 +255,7 @@
 
         <div id="catalog-page" class="hidden no-print">
             <h2>📚 강좌 카탈로그</h2>
-            <p style="font-size:13px; color:#666;">강좌와 회차별 재생 시간을 등록하면 학생별 주간 학습량 검토에서 바로 선택할 수 있습니다. 공식 공개 목차를 확인한 값만 입력하세요.</p>
+            <p id="catalog-context-note" style="font-size:13px; color:#666;">학생이 실제 수강하는 강좌의 목차와 재생 시간을 등록합니다. 공식 공개 목차를 확인한 값만 입력하세요.</p>
             <div class="form-group"><label>강좌 선택</label><select id="catalog-course-select" onchange="selectCatalogCourse(this.value)"></select></div>
             <div class="flex-group">
                 <div class="form-group"><label>강사</label><input id="catalog-teacher" type="text" oninput="updateCatalogCourseField('teacher', this.value)"></div>
@@ -264,6 +264,7 @@
             <div class="form-group"><label>강좌명</label><input id="catalog-title" type="text" oninput="updateCatalogCourseField('title', this.value)"></div>
             <div class="form-group"><label>공식 공개 목차 URL (선택)</label><input id="catalog-source-url" type="url" placeholder="https://..." oninput="updateCatalogCourseField('sourceUrl', this.value)"></div>
             <h4>강의 목차</h4>
+            <div class="form-group"><label>목차 일괄 붙여넣기</label><textarea id="catalog-bulk-lessons" rows="3" placeholder="Theme 13 | 지수함수와 로그함수 | 52&#10;Theme 14 | 지수함수와 로그함수 | 48"></textarea><button type="button" class="btn-outline btn-sm" onclick="importCatalogLessons()" style="margin-top:6px;">붙여넣은 목차 추가</button></div>
             <table class="workload-table"><thead><tr><th>회차</th><th>강의명</th><th>재생 시간</th><th></th></tr></thead><tbody id="catalog-lesson-body"></tbody></table>
             <button type="button" class="btn-outline" onclick="addCatalogLesson()" style="margin-top:10px;">+ 강의 추가</button>
             <div style="margin-top:25px; display:flex; gap:10px;"><button onclick="saveCourseCatalog()" style="flex:3;">저장 및 반영</button><button onclick="closeCourseCatalog()" class="btn-gray" style="flex:1;">취소</button></div>
@@ -379,6 +380,7 @@ let globalCloudDatabase = []; let autoSaveTimer = null;
 
 let isCloudSaving = false; let syncPending = false;
 let tempSubjects = []; let tempConsultations = []; let tempCourseCatalog = []; let currentCatalogCourseId = "";
+let catalogEditingSubjectIndex = null;
 
 window.onload = function() { initTheme(); };
 
@@ -586,26 +588,18 @@ function backToDashboard() { document.getElementById("catalog-page").classList.a
 function logoutUser() { location.reload(); }
 function syncStorage() { localStorage.setItem(`academy_data_user_${currentTeacherPassword}_sub_${currentActiveSubject}`, JSON.stringify(students)); saveToCloudStorageAsync(); }
 
-const DEFAULT_COURSE_CATALOG = [
-    { teacher: "현우진", title: "시발점" }, { teacher: "현우진", title: "수분감" },
-    { teacher: "김기현", title: "파운데이션" }, { teacher: "김기현", title: "킥오프" },
-    { teacher: "김기현", title: "아이디어" }, { teacher: "김기현", title: "커넥션" }
-].flatMap(course => ["수학Ⅰ", "수학Ⅱ", "확률과 통계"].map(subject => ({
-    id: `${course.teacher}-${course.title}-${subject}`,
-    teacher: course.teacher,
-    title: `${course.title} ${subject}`,
-    subject,
-    sourceUrl: "",
-    lessons: []
-})));
-
 function cloneCourseCatalog(catalog) {
     return JSON.parse(JSON.stringify(catalog));
 }
 
 function getCourseCatalog() {
     const profile = teacherProfileMap[currentActiveSubject] || {};
-    return Array.isArray(profile.courseCatalog) && profile.courseCatalog.length ? profile.courseCatalog : cloneCourseCatalog(DEFAULT_COURSE_CATALOG);
+    const legacyTemplateIds = new Set([
+        "현우진-시발점", "현우진-수분감", "김기현-파운데이션", "김기현-킥오프", "김기현-아이디어", "김기현-커넥션"
+    ].flatMap(prefix => ["수학Ⅰ", "수학Ⅱ", "확률과 통계"].map(subject => `${prefix}-${subject}`)));
+    return Array.isArray(profile.courseCatalog)
+        ? profile.courseCatalog.filter(course => !(legacyTemplateIds.has(course.id) && !(course.lessons || []).length))
+        : [];
 }
 
 function normalizeCatalogSubject(subject) {
@@ -620,19 +614,63 @@ function getCatalogCourse(courseId) {
     return getCourseCatalog().find(course => course.id === courseId);
 }
 
+function getCatalogCourseDisplayName(course) {
+    return [course.teacher, course.title].filter(Boolean).join(" ").trim();
+}
+
+function findCatalogCourseForSubject(subject) {
+    const normalizedSubject = normalizeCatalogSubject(subject.name);
+    const courseName = String(subject.courseName || "").trim().toLowerCase();
+    return getCourseCatalog().find(course => course.subject === normalizedSubject && (
+        course.id === subject.courseId ||
+        (courseName && getCatalogCourseDisplayName(course).toLowerCase() === courseName)
+    ));
+}
+
 function openCourseCatalog() {
     tempCourseCatalog = cloneCourseCatalog(getCourseCatalog());
+    if (!tempCourseCatalog.length) return alert("학생 정보에서 과목과 수강 강좌를 먼저 입력한 뒤 '목차 등록'을 선택하세요.");
+    catalogEditingSubjectIndex = null;
     currentCatalogCourseId = tempCourseCatalog[0] ? tempCourseCatalog[0].id : "";
     document.getElementById("list-page").classList.add("hidden");
     document.getElementById("catalog-page").classList.remove("hidden");
     renderCourseCatalogEditor();
 }
 
+function openCourseCatalogForSubject(subjectIndex) {
+    const subject = tempSubjects[subjectIndex];
+    const courseName = String(subject.courseName || "").trim();
+    if (!subject.name || !courseName) return alert("과목명과 수강 강좌명을 먼저 입력하세요.");
+
+    tempCourseCatalog = cloneCourseCatalog(getCourseCatalog());
+    const existingCourse = findCatalogCourseForSubject(subject);
+    if (existingCourse) {
+        currentCatalogCourseId = existingCourse.id;
+    } else {
+        const course = {
+            id: `course-${Date.now()}`,
+            teacher: "",
+            title: courseName,
+            subject: normalizeCatalogSubject(subject.name),
+            sourceUrl: "",
+            lessons: []
+        };
+        tempCourseCatalog.push(course);
+        currentCatalogCourseId = course.id;
+    }
+    catalogEditingSubjectIndex = subjectIndex;
+    document.getElementById("detail-page").classList.add("hidden");
+    document.getElementById("catalog-page").classList.remove("hidden");
+    renderCourseCatalogEditor();
+}
+
 function closeCourseCatalog() {
     document.getElementById("catalog-page").classList.add("hidden");
-    document.getElementById("list-page").classList.remove("hidden");
+    if (catalogEditingSubjectIndex !== null) document.getElementById("detail-page").classList.remove("hidden");
+    else document.getElementById("list-page").classList.remove("hidden");
     tempCourseCatalog = [];
     currentCatalogCourseId = "";
+    catalogEditingSubjectIndex = null;
 }
 
 function getEditingCatalogCourse() {
@@ -644,6 +682,9 @@ function renderCourseCatalogEditor() {
     const course = getEditingCatalogCourse();
     select.innerHTML = tempCourseCatalog.map(item => `<option value="${escapeHtml(item.id)}" ${item.id === currentCatalogCourseId ? "selected" : ""}>${escapeHtml(item.subject)} · ${escapeHtml(item.teacher)} ${escapeHtml(item.title)}</option>`).join("");
     if (!course) return;
+    document.getElementById("catalog-context-note").innerText = catalogEditingSubjectIndex !== null
+        ? "이 학생이 실제 수강하는 강좌의 목차를 등록합니다. 저장하면 해당 과목에 자동 연결됩니다."
+        : "이미 학생이 등록한 강좌의 목차와 재생 시간을 관리합니다.";
     document.getElementById("catalog-teacher").value = course.teacher || "";
     document.getElementById("catalog-subject").value = course.subject || "수학Ⅰ";
     document.getElementById("catalog-title").value = course.title || "";
@@ -671,6 +712,24 @@ function addCatalogLesson() {
     renderCourseCatalogEditor();
 }
 
+function importCatalogLessons() {
+    const course = getEditingCatalogCourse();
+    const input = document.getElementById("catalog-bulk-lessons");
+    if (!course || !input.value.trim()) return alert("붙여넣을 목차를 입력하세요.");
+    const lessons = input.value.split(/\r?\n/).map(line => {
+        const parts = line.split(/\||\t/).map(part => part.trim()).filter(Boolean);
+        const lastPart = parts[parts.length - 1] || "";
+        const durationMatch = lastPart.match(/\d+/);
+        const duration = durationMatch ? toMinutes(durationMatch[0]) : 0;
+        const titleParts = durationMatch ? parts.slice(0, -1) : parts;
+        return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, title: titleParts.join(" · "), duration };
+    }).filter(lesson => lesson.title);
+    if (!lessons.length) return alert("'강의명 | 재생시간' 형식의 목차를 입력하세요.");
+    course.lessons.push(...lessons);
+    input.value = "";
+    renderCourseCatalogEditor();
+}
+
 function updateCatalogLesson(index, field, value) {
     const course = getEditingCatalogCourse();
     if (course && course.lessons[index]) course.lessons[index][field] = field === "duration" ? toMinutes(value) : value;
@@ -694,6 +753,15 @@ function saveCourseCatalog() {
         })).filter(lesson => lesson.title || lesson.duration);
     });
     profile.courseCatalog = cloneCourseCatalog(tempCourseCatalog);
+    if (catalogEditingSubjectIndex !== null) {
+        const subject = tempSubjects[catalogEditingSubjectIndex];
+        const course = profile.courseCatalog.find(item => item.id === currentCatalogCourseId);
+        if (subject && course) {
+            subject.courseId = course.id;
+            subject.courseName = getCatalogCourseDisplayName(course) || course.title;
+        }
+        renderSubjectCardsUI();
+    }
     localStorage.setItem(`academy_multi_profiles_${currentTeacherPassword}`, JSON.stringify(teacherProfileMap));
     saveToCloudStorageAsync();
     closeCourseCatalog();
@@ -818,10 +886,10 @@ function renderSubjectCardsUI() {
     tempSubjects.forEach((sub, sIdx) => {
         const card = document.createElement("div");
         card.className = "subject-card";
-        const availableCourses = catalog.filter(course => course.subject === normalizeCatalogSubject(sub.name));
-        const selectedCourseId = sub.courseId || (sub.lectures || []).find(lecture => lecture.courseId)?.courseId || "";
-        const selectedCourse = availableCourses.find(course => course.id === selectedCourseId);
-        const courseOptions = [`<option value="">수강 강좌 선택</option>`, ...availableCourses.map(course => `<option value="${escapeHtml(course.id)}" ${course.id === selectedCourseId ? "selected" : ""}>${escapeHtml(course.teacher)} ${escapeHtml(course.title)}</option>`)].join("");
+        const selectedCourse = findCatalogCourseForSubject(sub);
+        const matchingCourses = catalog.filter(course => course.subject === normalizeCatalogSubject(sub.name));
+        const datalistId = `course-suggestions-${sIdx}`;
+        const courseSuggestions = matchingCourses.map(course => `<option value="${escapeHtml(getCatalogCourseDisplayName(course))}"></option>`).join("");
         
         let lecturesHTML = "";
         sub.lectures.forEach((lec, lIdx) => {
@@ -845,12 +913,13 @@ function renderSubjectCardsUI() {
             <div class="subject-card-header">
                 <div style="display:flex; gap:8px; flex:1;">
                     <input type="text" placeholder="과목명 (예: 수1, 수2, 확통)" value="${sub.name || ''}" onchange="tempSubjects[${sIdx}].name = this.value; renderSubjectCardsUI();" style="font-weight: bold; font-size: 14px; flex: 1; margin: 0;">
-                    <select onchange="selectSubjectCatalogCourse(${sIdx}, this.value)" style="flex:1.4; margin:0;">${courseOptions}</select>
+                    <input type="text" list="${datalistId}" placeholder="수강 강좌명 (예: 현우진 시발점)" value="${escapeHtml(sub.courseName || '')}" onchange="updateSubjectCourseName(${sIdx}, this.value)" style="flex:1.4; margin:0;">
+                    <datalist id="${datalistId}">${courseSuggestions}</datalist>
                 </div>
                 ${tempSubjects.length > 1 ? `<button onclick="removeSubjectCard(${sIdx})" class="btn-red btn-sm">과목 삭제</button>` : ''}
             </div>
             <div style="margin-top: 10px;">
-                <label style="font-size: 11px; color: #86868b; font-weight: bold;">${selectedCourse ? `${escapeHtml(selectedCourse.teacher)} ${escapeHtml(selectedCourse.title)} 목차 연동` : "강의 및 교재 진도 목록"} · 강의 시간은 분 단위</label>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;"><label style="font-size: 11px; color: #86868b; font-weight: bold;">${selectedCourse ? `${escapeHtml(getCatalogCourseDisplayName(selectedCourse))} 목차 연동` : "강의 및 교재 진도 목록"} · 강의 시간은 분 단위</label><button type="button" class="btn-outline btn-sm" onclick="openCourseCatalogForSubject(${sIdx})">${selectedCourse ? "목차 관리" : "목차 등록"}</button></div>
                 ${lecturesHTML}
             </div>
             <button onclick="addLectureItem(${sIdx})" class="btn-outline btn-sm" style="margin-top: 8px; width: 100%; border-style: dashed;" ${sub.lectures.length >= 10 ? 'disabled' : ''}>+ 강의/교재 추가 (${sub.lectures.length}/10)</button>
@@ -882,20 +951,19 @@ function removeLectureItem(sIdx, lIdx) {
     renderSubjectCardsUI();
 }
 
-function selectSubjectCatalogCourse(subjectIndex, courseId) {
+function updateSubjectCourseName(subjectIndex, courseName) {
     const subject = tempSubjects[subjectIndex];
-    subject.courseId = courseId;
-    subject.lectures.forEach(lecture => {
-        lecture.lessonId = "";
-        delete lecture.courseId;
-    });
+    subject.courseName = courseName.trim();
+    const course = findCatalogCourseForSubject(subject);
+    subject.courseId = course ? course.id : "";
+    subject.lectures.forEach(lecture => { lecture.lessonId = ""; });
     renderSubjectCardsUI();
 }
 
 function selectSubjectCatalogLesson(subjectIndex, lectureIndex, lessonId) {
     const lecture = tempSubjects[subjectIndex].lectures[lectureIndex];
     const subject = tempSubjects[subjectIndex];
-    const course = getCatalogCourse(subject.courseId || lecture.courseId);
+    const course = findCatalogCourseForSubject(subject);
     const lesson = course && (course.lessons || []).find(item => item.id === lessonId);
     lecture.lessonId = lessonId;
     if (lesson) {
